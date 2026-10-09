@@ -9,7 +9,8 @@ certificates, totem tags), now usable by your whole team from anywhere.
 
 | Read this | When |
 |---|---|
-| [SETUP.md](SETUP.md) | Setting it up (about 30 minutes, once) — start here |
+| [START_HERE.md](START_HERE.md) | **Step-by-step setup for beginners — start here** |
+| [SETUP.md](SETUP.md) | Short technical version of the same steps |
 | [SECURITY.md](SECURITY.md) | What is and isn't protected, honestly |
 | [CHANGING.md](CHANGING.md) | How to add a field, a route, a team member, change the certificate… |
 
