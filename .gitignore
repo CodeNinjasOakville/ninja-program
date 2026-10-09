@@ -1,0 +1,6 @@
+node_modules/
+*.ninjabackup
+*.db
+*.sqlite
+*.sqlite3
+__pycache__/

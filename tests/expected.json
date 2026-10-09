@@ -1,0 +1,1697 @@
+[
+ {
+  "status": 200,
+  "data": {
+   "belt_options": [
+    "White",
+    "Yellow",
+    "Orange",
+    "Green",
+    "Blue",
+    "Purple",
+    "Brown",
+    "Red",
+    "Black",
+    "Bronze",
+    "Silver",
+    "Platinum",
+    "Gold"
+   ],
+   "coding_experience_options": [
+    "None",
+    "Some",
+    "Experienced"
+   ],
+   "follow_up_options": [
+    "Not yet",
+    "Called",
+    "Emailed",
+    "No response"
+   ],
+   "gbs_completed_options": [
+    "Yes",
+    "No"
+   ],
+   "gbs_types": [
+    "Intro GBS",
+    "Follow-up GBS",
+    "Trial Class"
+   ],
+   "schedule_days": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+   ]
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true,
+   "values": [
+    "White",
+    "Yellow",
+    "Orange",
+    "Green",
+    "Blue",
+    "Purple",
+    "Brown",
+    "Red",
+    "Black",
+    "Bronze",
+    "Silver",
+    "Platinum",
+    "Gold",
+    "Titanium"
+   ]
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "values must be a list of strings"
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "belt_options": [
+    "White",
+    "Yellow",
+    "Orange",
+    "Green",
+    "Blue",
+    "Purple",
+    "Brown",
+    "Red",
+    "Black",
+    "Bronze",
+    "Silver",
+    "Platinum",
+    "Gold",
+    "Titanium"
+   ],
+   "coding_experience_options": [
+    "None",
+    "Some",
+    "Experienced"
+   ],
+   "follow_up_options": [
+    "Not yet",
+    "Called",
+    "Emailed",
+    "No response"
+   ],
+   "gbs_completed_options": [
+    "Yes",
+    "No"
+   ],
+   "gbs_types": [
+    "Intro GBS",
+    "Follow-up GBS",
+    "Trial Class"
+   ],
+   "schedule_days": [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday"
+   ]
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "entry_number": 1,
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "entry_number": 2,
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Ninja Name is required."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [
+    "Line 2: Ninja Name is required."
+   ],
+   "successCount": 3
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No entries were provided."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [
+    "Row 3: Ninja Name is required."
+   ],
+   "successCount": 3
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Could not find a \"Ninja Name\" (or \"Child Name\") column in the CSV header."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No file was uploaded."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "age": "9",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "e@x.com",
+    "entry_number": 1,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "Intro GBS",
+    "id": 1,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Ethan Dolphin",
+    "parent_name": "Pat",
+    "phone_number": "555",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 2,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 2,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Old Timer",
+    "parent_name": "",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "7",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "z@z.com",
+    "entry_number": 3,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 3,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Zoe Zed",
+    "parent_name": "Mom",
+    "phone_number": "111",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 4,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 4,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Amy",
+    "parent_name": "Bob",
+    "phone_number": "222",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 5,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 5,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Tail",
+    "parent_name": "",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "k@l.com",
+    "entry_number": 6,
+    "gbs_completed": "",
+    "gbs_date": "2026-01-02",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 6,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Kim Lee",
+    "parent_name": "Sam",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "q@q.com",
+    "entry_number": 7,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 7,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Quote, \"Q\" Name",
+    "parent_name": "P",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 8,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 8,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Last One",
+    "parent_name": "P2",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "age": "9",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "e@x.com",
+    "entry_number": 1,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "Intro GBS",
+    "id": 1,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Ethan Dolphin",
+    "parent_name": "Pat",
+    "phone_number": "555",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "k@l.com",
+    "entry_number": 6,
+    "gbs_completed": "",
+    "gbs_date": "2026-01-02",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 6,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Kim Lee",
+    "parent_name": "Sam",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 404,
+  "data": {
+   "error": "That entry no longer exists."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Ninja Name is required."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "deletedCount": 2,
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No ids were provided."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "age": "9",
+    "coding_experience": "",
+    "comments": "hi",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "new@x.com",
+    "entry_number": 1,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "Intro GBS",
+    "id": 1,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Ethan Dolphin",
+    "parent_name": "Pat",
+    "phone_number": "555",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 4,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 4,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Amy",
+    "parent_name": "Bob",
+    "phone_number": "222",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 5,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 5,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Tail",
+    "parent_name": "",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "k@l.com",
+    "entry_number": 6,
+    "gbs_completed": "",
+    "gbs_date": "2026-01-02",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 6,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Kim Lee",
+    "parent_name": "Sam",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "q@q.com",
+    "entry_number": 7,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 7,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Quote, \"Q\" Name",
+    "parent_name": "P",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   },
+   {
+    "age": "",
+    "coding_experience": "",
+    "comments": "",
+    "created_at": "2026-10-09 20:13:09",
+    "email": "",
+    "entry_number": 8,
+    "gbs_completed": "",
+    "gbs_date": "",
+    "gbs_time": "",
+    "gbs_type": "",
+    "id": 8,
+    "lead_date": "2026-10-09",
+    "ninja_name": "Last One",
+    "parent_name": "P2",
+    "phone_number": "",
+    "post_gbs_follow_up": "",
+    "staff_name": ""
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Name is required."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [
+    "Line 3: Name is required."
+   ],
+   "successCount": 3
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [
+    "Row 3: Name is required."
+   ],
+   "successCount": 2
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Could not find a \"Name\" column in the CSV header."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 8,
+    "name": "Dee Roe",
+    "new_belt": "Black",
+    "old_belt": "Red"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 7,
+    "name": "Cal Kim",
+    "new_belt": "Titanium",
+    "old_belt": "Gold"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 6,
+    "name": "No Belts",
+    "new_belt": "",
+    "old_belt": ""
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 5,
+    "name": "Bad",
+    "new_belt": "White",
+    "old_belt": "Gold"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 4,
+    "name": "Amy Bee",
+    "new_belt": "Black",
+    "old_belt": "Blue"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 3,
+    "name": "Zoe Zed",
+    "new_belt": "Blue",
+    "old_belt": "Yellow"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 2,
+    "name": "Zoe Zed",
+    "new_belt": "Yellow",
+    "old_belt": "white belt"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 1,
+    "name": "Ethan Dolphin",
+    "new_belt": "Green Belt",
+    "old_belt": "White"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 3,
+    "name": "Zoe Zed",
+    "new_belt": "Blue",
+    "old_belt": "Yellow"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "id": 2,
+    "name": "Zoe Zed",
+    "new_belt": "Yellow",
+    "old_belt": "white belt"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Name is required."
+  }
+ },
+ {
+  "status": 404,
+  "data": {
+   "error": "That entry no longer exists."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No ids were provided."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Name is required."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 404,
+  "data": {
+   "error": "That entry no longer exists."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 2,
+    "is_ai": 1,
+    "name": "Mia",
+    "notes": "",
+    "time_slot": "6 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Thursday",
+    "id": 1,
+    "is_ai": 1,
+    "name": "Woojae",
+    "notes": "",
+    "time_slot": "4 PM - 5 PM"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 2,
+    "is_ai": 1,
+    "name": "Mia",
+    "notes": "",
+    "time_slot": "6 PM"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Thursday",
+    "id": 1,
+    "is_ai": 1,
+    "name": "Woojae",
+    "notes": "",
+    "time_slot": "4 PM - 5 PM"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true,
+   "sessionCount": 2
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Session 2 is an exact repeat of another session (friday, 3 pm)."
+  }
+ },
+ {
+  "status": 409,
+  "data": {
+   "error": "One of those sessions no longer exists. Close this window and reopen it."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Add at least one session."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Name is required."
+  }
+ },
+ {
+  "status": 409,
+  "data": {
+   "error": "One of those sessions no longer exists. Close this window and reopen it."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true,
+   "sessionCount": 1
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [
+    "Line 3: Name is required."
+   ],
+   "successCount": 3
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [],
+   "successCount": 8
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "errors": [],
+   "successCount": 2
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Could not find any recognizable Ninjas in that file. Expected either a weekly schedule export (with day columns) or a flat CSV with Name/Day/Time Slot columns."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Friday",
+    "id": 3,
+    "is_ai": 0,
+    "name": "Woojae K",
+    "notes": "",
+    "time_slot": "3 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 16,
+    "is_ai": 1,
+    "name": "Hal",
+    "notes": "",
+    "time_slot": "4 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 8,
+    "is_ai": 0,
+    "name": "Ana",
+    "notes": "",
+    "time_slot": "4:00 PM - 5:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 9,
+    "is_ai": 1,
+    "name": "Ben",
+    "notes": "",
+    "time_slot": "4:00 PM - 5:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 12,
+    "is_ai": 0,
+    "name": "Eve",
+    "notes": "",
+    "time_slot": "5:00 PM - 6:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 15,
+    "is_ai": 0,
+    "name": "stray name",
+    "notes": "",
+    "time_slot": "5:00 PM - 6:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Monday",
+    "id": 2,
+    "is_ai": 1,
+    "name": "Mia",
+    "notes": "",
+    "time_slot": "6 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Sunday",
+    "id": 4,
+    "is_ai": 1,
+    "name": "Brand New",
+    "notes": "",
+    "time_slot": "1 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Thursday",
+    "id": 1,
+    "is_ai": 1,
+    "name": "Woojae K",
+    "notes": "",
+    "time_slot": "4 PM - 5 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Tuesday",
+    "id": 5,
+    "is_ai": 1,
+    "name": "Ann",
+    "notes": "",
+    "time_slot": "4 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Tuesday",
+    "id": 10,
+    "is_ai": 0,
+    "name": "Cy",
+    "notes": "",
+    "time_slot": "4:00 PM - 5:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Tuesday",
+    "id": 11,
+    "is_ai": 0,
+    "name": "Di",
+    "notes": "",
+    "time_slot": "4:00 PM - 5:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Tuesday",
+    "id": 6,
+    "is_ai": 0,
+    "name": "Bob",
+    "notes": "",
+    "time_slot": "5 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Tuesday",
+    "id": 17,
+    "is_ai": 1,
+    "name": "Ivy",
+    "notes": "",
+    "time_slot": "5 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Wed",
+    "id": 7,
+    "is_ai": 0,
+    "name": "Cy",
+    "notes": "",
+    "time_slot": "6 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Wednesday",
+    "id": 13,
+    "is_ai": 1,
+    "name": "Flo",
+    "notes": "",
+    "time_slot": "5:00 PM - 6:00 PM"
+   },
+   {
+    "created_at": "2026-10-09 20:13:09",
+    "day": "Wednesday",
+    "id": 14,
+    "is_ai": 0,
+    "name": "Gus",
+    "notes": "",
+    "time_slot": "5:00 PM - 6:00 PM"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "deletedCount": 2,
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "overall": {
+    "belts": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "certificates": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "large_coins": {
+     "earned": 5,
+     "given": 0,
+     "remaining": 5
+    },
+    "levels_progressed": 13,
+    "ninja_bucks": {
+     "earned": 65,
+     "given": 0,
+     "remaining": 65
+    },
+    "prints": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "small_coins": {
+     "earned": 15,
+     "given": 0,
+     "remaining": 15
+    }
+   },
+   "rows": [
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 4,
+     "large_coins_remaining": 2,
+     "name": "Amy Bee",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "Blue → Black",
+     "small_coins_remaining": 0
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 1,
+     "large_coins_remaining": 0,
+     "name": "Cal Kim",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Gold → Titanium",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 1,
+     "large_coins_remaining": 0,
+     "name": "Dee Roe",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Red → Black",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 3,
+     "certificates_remaining": 3,
+     "large_coins_remaining": 1,
+     "name": "Ethan Dolphin",
+     "ninja_bucks_remaining": 15,
+     "prints_remaining": 3,
+     "progression": "White → Green",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 4,
+     "large_coins_remaining": 2,
+     "name": "Zoe Zed",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "White → Yellow → Blue",
+     "small_coins_remaining": 0
+    }
+   ]
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true,
+   "recorded": 2
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Rewards could not be given.\nEthan Dolphin: trying to give 50 Ninja Bucks, but only 10 remain.\nEthan Dolphin: trying to give 9 Belts, but only 3 remain.\nZoe Zed: trying to give 50 Ninja Bucks, but only 20 remain.\nZoe Zed: trying to give 9 Belts, but only 4 remain."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No reward amounts were entered."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "prints cannot be negative."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "prints must be a whole number."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No Ninja names were provided."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "Rewards could not be given.\nzoe zed: trying to give 2 Small Coins, but only 0 remain."
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:09",
+    "date": "2026-10-09",
+    "details": "",
+    "entry_type": "Reward Given",
+    "id": 2,
+    "name": "Ethan Dolphin",
+    "reward_type": "3D Print"
+   },
+   {
+    "amount": 5,
+    "created_at": "2026-10-09 20:13:09",
+    "date": "2026-10-09",
+    "details": "",
+    "entry_type": "Reward Given",
+    "id": 1,
+    "name": "Ethan Dolphin",
+    "reward_type": "Ninja Bucks"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "ok": true
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "overall": {
+    "belts": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "certificates": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "large_coins": {
+     "earned": 5,
+     "given": 0,
+     "remaining": 5
+    },
+    "levels_progressed": 13,
+    "ninja_bucks": {
+     "earned": 65,
+     "given": 0,
+     "remaining": 65
+    },
+    "prints": {
+     "earned": 13,
+     "given": 1,
+     "remaining": 12
+    },
+    "small_coins": {
+     "earned": 15,
+     "given": 0,
+     "remaining": 15
+    }
+   },
+   "rows": [
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 4,
+     "large_coins_remaining": 2,
+     "name": "Amy Bee",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "Blue → Black",
+     "small_coins_remaining": 0
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 1,
+     "large_coins_remaining": 0,
+     "name": "Cal Kim",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Gold → Titanium",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 1,
+     "large_coins_remaining": 0,
+     "name": "Dee Roe",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Red → Black",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 3,
+     "certificates_remaining": 3,
+     "large_coins_remaining": 1,
+     "name": "Ethan Dolphin",
+     "ninja_bucks_remaining": 15,
+     "prints_remaining": 2,
+     "progression": "White → Green",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 4,
+     "large_coins_remaining": 2,
+     "name": "Zoe Zed",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "White → Yellow → Blue",
+     "small_coins_remaining": 0
+    }
+   ]
+  }
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "belt": "Yellow",
+    "name": "Ethan Dolphin"
+   },
+   {
+    "belt": "Orange",
+    "name": "Ethan Dolphin"
+   },
+   {
+    "belt": "Green",
+    "name": "Ethan Dolphin"
+   },
+   {
+    "belt": "Yellow",
+    "name": "Zoe Zed"
+   },
+   {
+    "belt": "Orange",
+    "name": "Zoe Zed"
+   },
+   {
+    "belt": "Green",
+    "name": "Zoe Zed"
+   },
+   {
+    "belt": "Blue",
+    "name": "Zoe Zed"
+   },
+   {
+    "belt": "Purple",
+    "name": "Amy Bee"
+   },
+   {
+    "belt": "Brown",
+    "name": "Amy Bee"
+   },
+   {
+    "belt": "Red",
+    "name": "Amy Bee"
+   },
+   {
+    "belt": "Black",
+    "name": "Amy Bee"
+   },
+   {
+    "belt": "Titanium",
+    "name": "Cal Kim"
+   },
+   {
+    "belt": "Black",
+    "name": "Dee Roe"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 1,
+   "downloadUrl": "/api/certificates/download/Ninja Certificates - 09-Oct-2026.pdf",
+   "filename": "Ninja Certificates - 09-Oct-2026.pdf",
+   "ok": true,
+   "pages": 1
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 1,
+   "downloadUrl": "/api/certificates/download/Ninja Certificates - 09-Oct-2026.pdf",
+   "filename": "Ninja Certificates - 09-Oct-2026.pdf",
+   "ok": true,
+   "pages": 1
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No certificates were specified."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "There are no outstanding certificates to generate."
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 11,
+   "downloadUrl": "/api/certificates/download/Ninja Certificates - 09-Oct-2026.pdf",
+   "filename": "Ninja Certificates - 09-Oct-2026.pdf",
+   "ok": true,
+   "pages": 11
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "There are no outstanding certificates to generate."
+  }
+ },
+ {
+  "status": 200,
+  "data": []
+ },
+ {
+  "status": 200,
+  "data": [
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Black Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 15,
+    "name": "Dee Roe",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Black Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 14,
+    "name": "Amy Bee",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Red Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 13,
+    "name": "Amy Bee",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Brown Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 12,
+    "name": "Amy Bee",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Purple Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 11,
+    "name": "Amy Bee",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Blue Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 10,
+    "name": "Zoe Zed",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Green Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 9,
+    "name": "Zoe Zed",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Orange Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 8,
+    "name": "Zoe Zed",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Yellow Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 7,
+    "name": "Zoe Zed",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Green Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 6,
+    "name": "Ethan Dolphin",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Orange Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 5,
+    "name": "Ethan Dolphin",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Titanium Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 4,
+    "name": "Cal Kim",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:10",
+    "date": "2026-10-09",
+    "details": "Yellow Belt Certificate",
+    "entry_type": "Certificate Printed",
+    "id": 3,
+    "name": "Ethan Dolphin",
+    "reward_type": "Certificate"
+   },
+   {
+    "amount": 1,
+    "created_at": "2026-10-09 20:13:09",
+    "date": "2026-10-09",
+    "details": "",
+    "entry_type": "Reward Given",
+    "id": 2,
+    "name": "Ethan Dolphin",
+    "reward_type": "3D Print"
+   }
+  ]
+ },
+ {
+  "status": 200,
+  "data": {
+   "overall": {
+    "belts": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
+    },
+    "certificates": {
+     "earned": 13,
+     "given": 13,
+     "remaining": 0
+    },
+    "large_coins": {
+     "earned": 5,
+     "given": 0,
+     "remaining": 5
+    },
+    "levels_progressed": 13,
+    "ninja_bucks": {
+     "earned": 65,
+     "given": 0,
+     "remaining": 65
+    },
+    "prints": {
+     "earned": 13,
+     "given": 1,
+     "remaining": 12
+    },
+    "small_coins": {
+     "earned": 15,
+     "given": 0,
+     "remaining": 15
+    }
+   },
+   "rows": [
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 0,
+     "large_coins_remaining": 2,
+     "name": "Amy Bee",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "Blue → Black",
+     "small_coins_remaining": 0
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 0,
+     "large_coins_remaining": 0,
+     "name": "Cal Kim",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Gold → Titanium",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 1,
+     "certificates_remaining": 0,
+     "large_coins_remaining": 0,
+     "name": "Dee Roe",
+     "ninja_bucks_remaining": 5,
+     "prints_remaining": 1,
+     "progression": "Red → Black",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 3,
+     "certificates_remaining": 0,
+     "large_coins_remaining": 1,
+     "name": "Ethan Dolphin",
+     "ninja_bucks_remaining": 15,
+     "prints_remaining": 2,
+     "progression": "White → Green",
+     "small_coins_remaining": 5
+    },
+    {
+     "belts_remaining": 4,
+     "certificates_remaining": 0,
+     "large_coins_remaining": 2,
+     "name": "Zoe Zed",
+     "ninja_bucks_remaining": 20,
+     "prints_remaining": 4,
+     "progression": "White → Yellow → Blue",
+     "small_coins_remaining": 0
+    }
+   ]
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 2,
+   "downloadUrl": "/api/totem-tags/download/Ninja Totem Tags.pdf",
+   "filename": "Ninja Totem Tags.pdf",
+   "ok": true,
+   "pages": 1
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 20,
+   "downloadUrl": "/api/totem-tags/download/Ninja Totem Tags.pdf",
+   "filename": "Ninja Totem Tags.pdf",
+   "ok": true,
+   "pages": 2
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 5,
+   "downloadUrl": "/api/totem-tags/download/Ninja Totem Tags.pdf",
+   "filename": "Ninja Totem Tags.pdf",
+   "ok": true,
+   "pages": 1
+  }
+ },
+ {
+  "status": 200,
+  "data": {
+   "count": 1,
+   "downloadUrl": "/api/totem-tags/download/Ninja Totem Tags.pdf",
+   "filename": "Ninja Totem Tags.pdf",
+   "ok": true,
+   "pages": 1
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No valid ids were provided."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No names to print."
+  }
+ },
+ {
+  "status": 400,
+  "data": {
+   "error": "No Ninjas were specified."
+  }
+ }
+]

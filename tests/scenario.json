@@ -1,0 +1,910 @@
+[
+ {
+  "method": "GET",
+  "url": "/api/settings",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/settings/belt_options",
+  "body": {
+   "values": [
+    "White",
+    "Yellow",
+    "Orange",
+    "Green",
+    "Blue",
+    "Purple",
+    "Brown",
+    "Red",
+    "Black",
+    "Bronze",
+    "Silver",
+    "Platinum",
+    "Gold",
+    "Titanium",
+    "  "
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/settings/gbs_types",
+  "body": {
+   "values": "nope"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/settings",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads",
+  "body": {
+   "ninja_name": "  Ethan Dolphin ",
+   "parent_name": "Pat",
+   "phone_number": "555",
+   "email": "e@x.com",
+   "age": 9,
+   "gbs_type": "Intro GBS"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads",
+  "body": {
+   "ninja_name": "Old Timer",
+   "age": 0,
+   "comments": null
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads",
+  "body": {},
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/bulk",
+  "body": {
+   "text": "Zoe Zed\tMom\t111\tz@z.com\t7\n|Mom2\n  \nAmy|Bob|222\r\nTail"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/bulk",
+  "body": {
+   "text": "   "
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/import",
+  "body": null,
+  "file": {
+   "name": "l.csv",
+   "text": "\ufeffChild Name,Parent Name,Email Address,Date of GBS,Extra\nKim Lee,Sam,k@l.com,2026-01-02,x\n,NoName,n@n.com,,y\n\"Quote, \"\"Q\"\" Name\",P,q@q.com,,z\n\nLast One,P2\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/import",
+  "body": null,
+  "file": {
+   "name": "bad.csv",
+   "text": "Foo,Bar\n1,2\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/import",
+  "body": null,
+  "file": null,
+  "note": "no file"
+ },
+ {
+  "method": "GET",
+  "url": "/api/leads",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/leads?q=ethan",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/leads?q=sam",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/leads/1",
+  "body": {
+   "email": "new@x.com",
+   "comments": "hi"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/leads/999",
+  "body": {
+   "email": "a"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/leads/1",
+  "body": {
+   "ninja_name": "  "
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/bulk-delete",
+  "body": {
+   "ids": [
+    2,
+    "3",
+    "x"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/bulk-delete",
+  "body": {},
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/leads",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "DELETE",
+  "url": "/api/leads/4",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts",
+  "body": {
+   "name": "Ethan Dolphin",
+   "old_belt": "White",
+   "new_belt": "Green Belt"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts",
+  "body": {
+   "name": "Zoe Zed",
+   "old_belt": "white belt",
+   "new_belt": "Yellow"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts",
+  "body": {
+   "name": "Zoe Zed",
+   "old_belt": "Yellow",
+   "new_belt": "Blue"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts",
+  "body": {},
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts/bulk",
+  "body": {
+   "text": "Amy Bee\tBlue\tBlack\nBad|Gold|White\n|x|y\nNo Belts"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts/import",
+  "body": null,
+  "file": {
+   "name": "b.csv",
+   "text": "Name,Old Belt,New Belt,Comments\nCal Kim,Gold,Titanium,ok\n,a,b,c\nDee Roe,Red,Black,\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts/import",
+  "body": null,
+  "file": {
+   "name": "b2.csv",
+   "text": "Who,Old Belt\nx,y\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/belts",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/belts?q=zoe",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/belts/1",
+  "body": {
+   "new_belt": "Orange"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/belts/1",
+  "body": {
+   "new_belt": "Green"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/belts/1",
+  "body": {
+   "name": ""
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/belts/404",
+  "body": {
+   "name": "x"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "DELETE",
+  "url": "/api/belts/5",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/belts/bulk-delete",
+  "body": {
+   "ids": []
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas",
+  "body": {
+   "name": "Woojae",
+   "day": "Thursday",
+   "time_slot": "4 PM - 5 PM",
+   "is_ai": true
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas",
+  "body": {
+   "name": "Mia",
+   "day": "Monday",
+   "time_slot": "5 PM",
+   "notes": "n"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas",
+  "body": {
+   "day": "Monday"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/active-ninjas/2",
+  "body": {
+   "time_slot": "6 PM"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/active-ninjas/2",
+  "body": {
+   "is_ai": true,
+   "notes": ""
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "PUT",
+  "url": "/api/active-ninjas/77",
+  "body": {
+   "name": "x"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/active-ninjas",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/active-ninjas?q=mon",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/active-ninjas/person?name=%20WOOJAE",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "original_name": "Woojae",
+   "name": "Woojae K",
+   "sessions": [
+    {
+     "id": 1,
+     "day": "Thursday",
+     "time_slot": "4 PM - 5 PM",
+     "is_ai": true
+    },
+    {
+     "day": "Friday",
+     "time_slot": "3 PM",
+     "is_ai": false
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "original_name": "Woojae K",
+   "name": "Woojae K",
+   "sessions": [
+    {
+     "day": "Friday",
+     "time_slot": "3 PM"
+    },
+    {
+     "day": "friday",
+     "time_slot": "3 pm"
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "original_name": "Woojae K",
+   "name": "W",
+   "sessions": [
+    {
+     "id": 99,
+     "day": "x"
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "name": "W",
+   "sessions": []
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "name": "",
+   "sessions": [
+    {
+     "day": "x"
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "original_name": "Woojae K",
+   "name": "Woojae K",
+   "sessions": [
+    {
+     "id": "2",
+     "day": "x"
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/person",
+  "body": {
+   "name": "Brand New",
+   "sessions": [
+    {
+     "day": "Sunday",
+     "time_slot": "1 PM",
+     "is_ai": true
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/bulk",
+  "body": {
+   "text": "Ann\tTuesday\t4 PM\tyes\nBob|Tuesday|5 PM\n|x\nCy|Wed|6 PM|no"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/import",
+  "body": null,
+  "file": {
+   "name": "grid.csv",
+   "text": "Session Schedule,Monday,Tuesday,Wednesday\n,4:00 PM - 5:00 PM,4:00 PM - 5:00 PM,\n,\"Ana\nBen (AI)\",\"Cy\nDi\",\n,\n,5:00 PM - 6:00 PM,,5:00 PM - 6:00 PM\n,Eve,,\"Flo(AI)\nGus\"\n,\"stray name\",,\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/import",
+  "body": null,
+  "file": {
+   "name": "flat.csv",
+   "text": "Name,Day,Time Slot,AI\nHal,Monday,4 PM,yes\nIvy (AI),Tuesday,5 PM,\n,Monday,1 PM,\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/import",
+  "body": null,
+  "file": {
+   "name": "junk.csv",
+   "text": "foo,bar\n1,2\n"
+  },
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/active-ninjas",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/active-ninjas/bulk-delete",
+  "body": {
+   "ids": [
+    3,
+    4
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "DELETE",
+  "url": "/api/active-ninjas/5",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/rewards/summary",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "Ethan Dolphin"
+   ],
+   "ninja_bucks": 5,
+   "prints": 1
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "Ethan Dolphin",
+    "Zoe Zed"
+   ],
+   "ninja_bucks": 50,
+   "belts": "9"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "Ethan Dolphin"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "Ethan Dolphin"
+   ],
+   "prints": -1
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "Ethan Dolphin"
+   ],
+   "prints": "abc"
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [],
+   "prints": 1
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/rewards/give",
+  "body": {
+   "names": [
+    "  zoe zed "
+   ],
+   "large_coins": 1,
+   "small_coins": 2
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/rewards/history",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "DELETE",
+  "url": "/api/rewards/history/1",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/rewards/summary",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/certificates/outstanding",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {
+   "items": [
+    {
+     "name": "Ethan Dolphin",
+     "belt": "yellow"
+    },
+    {
+     "name": "",
+     "belt": "x"
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {
+   "name": "Cal Kim",
+   "belts": [
+    "titanium"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {},
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {
+   "items": [
+    {
+     "name": "",
+     "belt": ""
+    }
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {
+   "generate_all": true
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/certificates/generate",
+  "body": {
+   "generate_all": true
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/certificates/outstanding",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/rewards/history",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "GET",
+  "url": "/api/rewards/summary",
+  "body": null,
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {
+   "names": [
+    "Ethan Dolphin",
+    "B"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {
+   "names": [
+    "N0",
+    "N1",
+    "N2",
+    "N3",
+    "N4",
+    "N5",
+    "N6",
+    "N7",
+    "N8",
+    "N9",
+    "N10",
+    "N11",
+    "N12",
+    "N13",
+    "N14",
+    "N15",
+    "N16",
+    "N17",
+    "N18",
+    "N19"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/leads/totem-tags",
+  "body": {
+   "all": true
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {
+   "ids": [
+    1,
+    "x"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {
+   "ids": [
+    "x"
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {
+   "names": [
+    "",
+    " "
+   ]
+  },
+  "file": null,
+  "note": ""
+ },
+ {
+  "method": "POST",
+  "url": "/api/totem-tags",
+  "body": {},
+  "file": null,
+  "note": ""
+ }
+]

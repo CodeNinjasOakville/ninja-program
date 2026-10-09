@@ -1,0 +1,131 @@
+/* Lock screen, setup, dialogs, top-bar status and the Security tab.
+   Kept separate from style.css so the original screens' styles stay untouched. */
+
+body.locked #app { display: none; }
+
+/* password boxes look like the other inputs */
+input[type="password"] {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-family: inherit;
+  background: #fff;
+  color: var(--ink);
+}
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
+}
+input[type="file"] { font-size: 13px; max-width: 100%; }
+.field input[type="password"], .field input[type="file"] { width: 100%; }
+
+/* ---------- lock screen ---------- */
+.lock-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--bg);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 6vh 16px 32px;
+}
+#lock-root:empty { display: none; }
+
+.lock-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(20, 24, 38, 0.08);
+  padding: 28px;
+  width: 100%;
+  max-width: 480px;
+}
+.lock-brand { font-size: 20px; font-weight: 700; }
+.lock-sub { color: var(--muted); margin: 4px 0 16px; font-size: 14px; }
+.lock-card p { line-height: 1.5; margin: 10px 0; }
+.lock-form { margin-top: 14px; }
+.lock-field { margin-bottom: 14px; }
+.lock-field label { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 4px; }
+.lock-field input[type="password"], .lock-field input[type="text"], .lock-field select { width: 100%; }
+.lock-field .hint, .hint { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+.lock-field.indent { margin-left: 22px; }
+
+.pw-row { display: flex; gap: 8px; align-items: center; }
+.pw-row input { flex: 1; min-width: 0; }
+.link-btn {
+  background: none; border: none; padding: 4px 2px; color: var(--accent);
+  font-weight: 500; font-size: 13px; text-decoration: underline; cursor: pointer;
+}
+.link-btn:hover { color: var(--accent-dark); }
+.show-toggle { text-decoration: none; min-width: 44px; }
+
+.wide-btn { width: 100%; padding: 11px 16px; margin-top: 4px; }
+
+.strength { font-size: 12px; margin: -6px 0 12px; min-height: 16px; color: var(--muted); }
+.strength[data-level="1"] { color: var(--error); }
+.strength[data-level="2"] { color: #a86a00; }
+.strength[data-level="3"] { color: var(--success); }
+
+.lock-error {
+  display: none; background: var(--error-bg); color: var(--error);
+  padding: 9px 12px; border-radius: 6px; font-size: 13px; margin: 8px 0 12px;
+}
+.lock-error.show { display: block; }
+
+.lock-foot { margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; align-items: center; }
+.start-choice { border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px 14px; margin: 0 0 14px; }
+.start-choice legend { font-weight: 600; font-size: 12.5px; padding: 0 6px; }
+.radio { display: block; margin: 6px 0; font-size: 13.5px; cursor: pointer; }
+.warn { background: #fff7e0; color: #7a5200; border-radius: 6px; padding: 9px 12px; font-size: 13px; }
+.lock-tips { color: var(--muted); font-size: 12.5px; padding-left: 18px; line-height: 1.5; }
+
+/* recovery key */
+.recovery-key {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px; font-weight: 700; letter-spacing: 1px; text-align: center;
+  background: #f3f5ff; border: 1px dashed var(--accent); border-radius: 8px; padding: 14px 8px; margin: 12px 0;
+  user-select: all;
+}
+.recovery-print { display: none; }
+
+/* ---------- top bar ---------- */
+.save-status { font-size: 12.5px; color: var(--muted); margin: 0 10px; min-width: 52px; text-align: right; }
+.save-status[data-state="error"] { color: var(--error); font-weight: 700; }
+.save-status[data-state="saved"]::before { content: "\2713 "; color: var(--success); }
+.nudge-btn { background: #fff7e0; color: #7a5200; border: 1px solid #f0d58a; padding: 6px 12px; }
+.nudge-btn:hover { background: #ffefbd; }
+.lock-btn { padding: 7px 14px; }
+
+/* ---------- Security tab ---------- */
+.sec-card { margin-bottom: 16px; }
+.sec-card h2 { margin: 0 0 6px; font-size: 16px; }
+.sec-status { margin: 6px 0 0; font-size: 13px; }
+.backup-line { margin: 4px 0 8px; font-size: 13px; }
+.backup-line.due { color: #7a5200; font-weight: 600; }
+.sec-storage { font-size: 13px; line-height: 1.5; }
+#securityRoot .banner { max-width: 640px; }
+
+/* dialogs */
+.dialog-message { margin: 0 0 12px; line-height: 1.45; font-size: 13px; }
+.dialog-note { color: var(--error); font-weight: 600; font-size: 13px; margin: 0 0 8px; }
+
+/* printing the recovery key prints ONLY the key page */
+@media print {
+  body.printing-key > *:not(#lock-root) { display: none !important; }
+  body.printing-key .lock-wrap { position: static; background: #fff; padding: 0; }
+  body.printing-key .lock-card { border: none; box-shadow: none; max-width: none; padding: 0; }
+  body.printing-key .lock-card > *:not(.recovery-print) { display: none !important; }
+  body.printing-key .recovery-print { display: block; font-family: system-ui, sans-serif; }
+  body.printing-key .print-key { display: block; font-size: 22px; padding: 18px; }
+}
+
+@media (max-width: 520px) {
+  .recovery-key { grid-template-columns: repeat(2, 1fr); font-size: 17px; }
+  .lock-card { padding: 20px; }
+}

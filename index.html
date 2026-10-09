@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ninja Program</title>
+  <link rel="icon" href="assets/unnamed.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/lock.css">
+</head>
+<body class="locked">
+
+  <!-- Lock screen / setup / dialogs are drawn here by js/core/lock.js -->
+  <div id="lock-root">
+    <div class="lock-wrap"><div class="lock-card">
+      <div class="lock-brand">Ninja Program</div>
+      <p class="lock-sub" id="loadingText">Loading...</p>
+      <noscript><p class="lock-error show">This app needs JavaScript turned on.</p></noscript>
+    </div></div>
+  </div>
+
+  <div id="app">
+
+    <nav id="tabs">
+      <div class="brand">Ninja Program</div>
+      <button class="tab-btn active" data-tab="leads">Leads</button>
+      <button class="tab-btn" data-tab="belts">Belts</button>
+      <button class="tab-btn" data-tab="active">Active Ninjas</button>
+      <button class="tab-btn" data-tab="rewards">Rewards</button>
+      <button class="tab-btn" data-tab="history">Reward History</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+      <button class="tab-btn" data-tab="security">Security</button>
+      <span class="spacer"></span>
+      <button id="backupNudge" class="nudge-btn" style="display:none;" title="You have changes that are not in a backup">Backup due</button>
+      <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
+      <button id="lockNowBtn" class="btn-secondary lock-btn" title="Save and lock the app">Lock</button>
+    </nav>
+
+    <!-- ============ LEADS ============ -->
+    <section id="tab-leads" class="tab-panel active">
+      <div class="panel-header">
+        <input type="text" id="leadsSearch" placeholder="Search by ninja or parent name&hellip;">
+        <div class="spacer"></div>
+        <span class="selection-count" id="leadsSelectionCount"></span>
+        <button class="btn-danger" id="deleteSelectedLeadsBtn" style="display:none;">Delete Selected</button>
+        <button class="btn-danger-outline" id="deleteAllLeadsBtn">Delete All</button>
+        <button class="btn-secondary" id="printTotemTagsBtn">Print Totem Tags</button>
+        <button class="btn-secondary" id="importLeadsBtn">Import CSV</button>
+        <input type="file" id="importLeadsFile" accept=".csv" style="display:none;">
+        <button class="btn-secondary" id="bulkAddLeadsBtn">Bulk Add</button>
+        <button class="btn-primary" id="addLeadBtn">+ Add Lead</button>
+      </div>
+      <div class="banner" id="leadsImportBanner"></div>
+      <div class="table-wrap">
+        <table id="leadsTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="leadsSelectAll"></th>
+              <th>#</th><th>Ninja Name</th><th>Parent</th><th>Phone</th>
+              <th>Email</th><th>Age</th><th>GBS Type</th><th>Staff</th>
+              <th>Coding Exp.</th><th>Comments</th><th>GBS Date</th>
+              <th>GBS Time</th><th>Follow-up</th><th>Completed</th>
+              <th>Lead Date</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state" id="leadsEmpty">No leads yet.</div>
+      </div>
+    </section>
+
+    <!-- ============ BELTS ============ -->
+    <section id="tab-belts" class="tab-panel">
+      <div class="panel-header">
+        <input type="text" id="beltsSearch" placeholder="Search by name&hellip;">
+        <div class="spacer"></div>
+        <span class="selection-count" id="beltsSelectionCount"></span>
+        <button class="btn-danger" id="deleteSelectedBeltsBtn" style="display:none;">Delete Selected</button>
+        <button class="btn-danger-outline" id="deleteAllBeltsBtn">Delete All</button>
+        <button class="btn-secondary" id="printTotemTagsBeltsBtn">Print Totem Tags</button>
+        <button class="btn-secondary" id="importBeltsBtn">Import CSV</button>
+        <input type="file" id="importBeltsFile" accept=".csv" style="display:none;">
+        <button class="btn-secondary" id="bulkAddBeltsBtn">Bulk Add</button>
+        <button class="btn-primary" id="addBeltBtn">+ Add Belt Entry</button>
+      </div>
+      <div class="banner" id="beltsImportBanner"></div>
+      <div class="table-wrap">
+        <table id="beltsTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="beltsSelectAll"></th>
+              <th>Name</th><th>Old Belt</th><th>New Belt</th><th>Date</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state" id="beltsEmpty">No belt entries yet.</div>
+      </div>
+    </section>
+
+    <!-- ============ ACTIVE NINJAS ============ -->
+    <section id="tab-active" class="tab-panel">
+      <div class="panel-header">
+        <input type="text" id="activeSearch" placeholder="Search by name, day, or time&hellip;">
+        <div class="spacer"></div>
+        <span class="selection-count" id="activeSelectionCount"></span>
+        <button class="btn-danger" id="deleteSelectedActiveBtn" style="display:none;">Delete Selected</button>
+        <button class="btn-danger-outline" id="deleteAllActiveBtn">Delete All</button>
+        <button class="btn-secondary" id="printTotemTagsActiveBtn">Print Totem Tags</button>
+        <button class="btn-secondary" id="importActiveBtn">Import CSV</button>
+        <input type="file" id="importActiveFile" accept=".csv" style="display:none;">
+        <button class="btn-secondary" id="bulkAddActiveBtn">Bulk Add</button>
+        <button class="btn-primary" id="addActiveBtn">+ Add Ninja</button>
+      </div>
+      <p class="muted">
+        CSV import accepts either a flat Name/Day/Time Slot/AI file, or the
+        wide weekly "Session Schedule" export straight from the spreadsheet -
+        it's auto-detected. A Ninja marked <span class="ai-badge">AI</span> is also
+        an Assistant Instructor for that session; they stay in the list, just flagged.
+      </p>
+      <div class="banner" id="activeImportBanner"></div>
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="viewScheduleBtn">Schedule</button>
+        <button class="toggle-btn" id="viewListBtn">List</button>
+        <span class="muted" id="activeCountLabel"></span>
+      </div>
+      <div id="activeSchedule" class="schedule"></div>
+      <div class="table-wrap" id="activeListWrap" style="display:none;">
+        <table id="activeTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="activeSelectAll"></th>
+              <th>Name</th><th>Day</th><th>Time Slot</th><th>AI?</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="activeEmpty">No active Ninjas yet.</div>
+    </section>
+
+    <!-- ============ REWARDS ============ -->
+    <section id="tab-rewards" class="tab-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Outstanding Rewards</h2>
+        <div class="spacer"></div>
+        <button class="btn-secondary" id="refreshRewardsBtn">Refresh</button>
+        <button class="btn-secondary" id="printTotemTagsRewardsBtn">Print Totem Tags</button>
+        <button class="btn-secondary" id="generateAllCertsBtn">Generate All Certificates</button>
+        <button class="btn-primary" id="giveRewardsBtn">Give Rewards</button>
+      </div>
+      <div class="banner" id="rewardsBanner"></div>
+
+      <div class="totals-grid" id="rewardsTotals"></div>
+
+      <div class="table-wrap">
+        <table id="rewardsTable">
+          <thead>
+            <tr>
+              <th>Name</th><th>Belt Progression</th><th>Ninja Bucks</th>
+              <th>Large Coins</th><th>Small Coins</th><th>3D Prints</th>
+              <th>Certificates</th><th>New Belts</th><th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state" id="rewardsEmpty">Everyone is all caught up - nothing outstanding.</div>
+      </div>
+    </section>
+
+    <!-- ============ REWARD HISTORY ============ -->
+    <section id="tab-history" class="tab-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Reward History (Receipts)</h2>
+        <div class="spacer"></div>
+        <button class="btn-secondary" id="refreshHistoryBtn">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table id="historyTable">
+          <thead>
+            <tr><th>Date</th><th>Name</th><th>Type</th><th>Amount</th><th>Details</th><th>Entry Type</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state" id="historyEmpty">No rewards have been recorded yet.</div>
+      </div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section id="tab-settings" class="tab-panel">
+      <div class="settings-card">
+        <h2>Dropdown Options</h2>
+        <p class="muted">One value per line. These populate the dropdowns in the Add forms.</p>
+        <p class="muted"><strong>Belt Colors</strong> order matters - list them lowest to highest.
+          That order is what the Rewards tab uses to work out how many levels someone progressed.</p>
+        <div id="settingsFields"></div>
+        <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
+        <div class="banner" id="settingsBanner"></div>
+      </div>
+    </section>
+
+    <!-- ============ SECURITY ============ -->
+    <section id="tab-security" class="tab-panel">
+      <div id="securityRoot"></div>
+    </section>
+
+  </div>
+
+  <!-- ============ MODAL: Add Lead ============ -->
+  <div class="modal-overlay" id="leadModalOverlay">
+    <div class="modal">
+      <h2 id="leadModalTitle">Add Ninja Entry</h2>
+      <div class="banner error" id="leadFormError"></div>
+      <div class="form-grid" id="leadFormFields"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="leadModalCancel">Cancel</button>
+        <button class="btn-primary" id="leadModalSubmit">Add Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Bulk Add Leads ============ -->
+  <div class="modal-overlay" id="bulkLeadModalOverlay">
+    <div class="modal wide">
+      <h2>Bulk Add Entries</h2>
+      <p class="muted" id="bulkLeadOrder"></p>
+      <textarea id="bulkLeadText" placeholder="Paste rows here, one entry per line&hellip;"></textarea>
+      <div class="banner" id="bulkLeadBanner"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="bulkLeadCancel">Close</button>
+        <button class="btn-primary" id="bulkLeadSubmit">Add Entries</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Add Belt Entry ============ -->
+  <div class="modal-overlay" id="beltModalOverlay">
+    <div class="modal">
+      <h2 id="beltModalTitle">Add Belt Entry</h2>
+      <div class="banner error" id="beltFormError"></div>
+      <div class="form-grid" id="beltFormFields"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="beltModalCancel">Cancel</button>
+        <button class="btn-primary" id="beltModalSubmit">Add Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Bulk Add Belts ============ -->
+  <div class="modal-overlay" id="bulkBeltModalOverlay">
+    <div class="modal wide">
+      <h2>Bulk Add Belt Entries</h2>
+      <p class="muted">One per line: Name, Old Belt, New Belt - tab or "|" separated.</p>
+      <textarea id="bulkBeltText" placeholder="Paste rows here, one entry per line&hellip;"></textarea>
+      <div class="banner" id="bulkBeltBanner"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="bulkBeltCancel">Close</button>
+        <button class="btn-primary" id="bulkBeltSubmit">Add Entries</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Give Rewards ============ -->
+  <div class="modal-overlay" id="giveRewardsModalOverlay">
+    <div class="modal">
+      <h2>Give Rewards</h2>
+      <div class="banner error" id="giveRewardsError"></div>
+      <div class="field full">
+        <label for="gr_names">Ninja Name(s)</label>
+        <div class="hint">Exact name(s), comma-separated for multiple.</div>
+        <input type="text" id="gr_names" placeholder="Ethan Dolphin, John Smith">
+      </div>
+      <div class="form-grid">
+        <div class="field"><label for="gr_ninja_bucks">Ninja Bucks</label><input type="text" id="gr_ninja_bucks" value="0"></div>
+        <div class="field"><label for="gr_large_coins">Large Coins ($10)</label><input type="text" id="gr_large_coins" value="0"></div>
+        <div class="field"><label for="gr_small_coins">Small Coins ($1)</label><input type="text" id="gr_small_coins" value="0"></div>
+        <div class="field"><label for="gr_prints">3D Prints</label><input type="text" id="gr_prints" value="0"></div>
+        <div class="field"><label for="gr_certificates">Certificates</label><input type="text" id="gr_certificates" value="0"></div>
+        <div class="field"><label for="gr_belts">New Belts</label><input type="text" id="gr_belts" value="0"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="giveRewardsCancel">Cancel</button>
+        <button class="btn-primary" id="giveRewardsSubmit">Record Rewards</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Confirm ============ -->
+  <div class="modal-overlay" id="confirmModalOverlay">
+    <div class="modal">
+      <h2 id="confirmModalTitle">Are you sure?</h2>
+      <p id="confirmModalMessage" class="muted"></p>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="confirmModalCancel">Cancel</button>
+        <button class="btn-danger" id="confirmModalOk">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Add/Edit Active Ninja (one Ninja, many sessions) ============ -->
+  <div class="modal-overlay" id="activeModalOverlay">
+    <div class="modal wide">
+      <h2 id="activeModalTitle">Add Ninja</h2>
+      <div class="banner error" id="activeFormError"></div>
+      <div class="field full">
+        <label for="af_name">Name</label>
+        <input type="text" id="af_name">
+      </div>
+      <div class="sessions-head">
+        <label>Sessions</label>
+        <span class="muted">One row per hour/block. Add a row for each day they come, or for a regular hour and an AI hour.</span>
+      </div>
+      <div class="session-labels">
+        <span>Day</span><span>Time Slot</span><span>AI?</span><span></span>
+      </div>
+      <div id="af_sessions"></div>
+      <datalist id="timeSlotOptions"></datalist>
+      <button class="btn-secondary" id="addSessionBtn" type="button">+ Add another session</button>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="activeModalCancel">Cancel</button>
+        <button class="btn-primary" id="activeModalSubmit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Bulk Add Active Ninjas ============ -->
+  <div class="modal-overlay" id="bulkActiveModalOverlay">
+    <div class="modal wide">
+      <h2>Bulk Add Active Ninjas</h2>
+      <p class="muted">One per line: Name, Day, Time Slot, AI (yes/no) - tab or "|" separated. Day and AI are optional.</p>
+      <textarea id="bulkActiveText" placeholder="Paste rows here, one entry per line&hellip;"></textarea>
+      <div class="banner" id="bulkActiveBanner"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="bulkActiveCancel">Close</button>
+        <button class="btn-primary" id="bulkActiveSubmit">Add Entries</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Libraries (kept in vendor/ - nothing is loaded from the internet) -->
+  <script src="vendor/pdf-lib.min.js"></script>
+  <script src="vendor/sql-wasm.js"></script>
+  <!-- The app itself starts from js/main.js; js/app.js (the original screens) loads after unlock -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
