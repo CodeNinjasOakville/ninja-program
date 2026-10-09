@@ -1,8 +1,5 @@
-// Friendly password advice shown while typing. The HARD rules live in vault.js
-// (checkPasswordStrength); this only guides people towards long passphrases, because
-// length - not clever symbols - is what protects the data if someone ever gets a copy
-// of the encrypted file and tries to guess the password offline.
-
+// Friendly password advice shown while typing: it nudges people towards long passphrases.
+// (The hard minimum length is checked in js/sync/login.js.)
 export function passwordAdvice(password) {
   const pw = String(password || "");
   if (!pw) return { level: 0, label: "", message: "" };

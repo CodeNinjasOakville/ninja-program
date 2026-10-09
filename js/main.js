@@ -1,19 +1,21 @@
-// Start-up: checks the browser, loads the SQLite engine, shows setup/unlock, and once the vault is
-// open starts the app. Read this file first to understand how the pieces fit together:
+// Start-up: checks the browser, loads the SQLite engine, signs the person in, loads the shared data
+// and starts the screens. Read this first to see how the pieces fit:
 //
-//   engine.js   SQLite (WebAssembly)            db.js       tables + SQL helpers
-//   vault.js    encryption                      session.js  keeps the open data saved (encrypted)
-//   lock.js     setup / unlock / recovery UI    api/*       the old Flask routes, now in the browser
-//   app.js      the screens (original UI)       security_panel.js  the Security tab
+//   sync/supabase.js  login + table access     sync/sync.js   keeps the local copy and the server in step
+//   sync/login.js     sign-in screens          core/db.js     tables + SQL helpers (local working copy)
+//   api/*             the old Flask routes     app.js         the screens (original UI)
+//   sync/account_panel.js  the Account tab     sync/config.js  your Supabase address + key
 
-import { Session } from "./core/session.js";
-import { idbStorage, setStorageScope } from "./core/storage.js";
+import { setStorageScope, prefs } from "./core/storage.js";
 import { loadEngine } from "./core/engine.js";
-import { runLock } from "./core/lock.js";
+import { openEmptyForSync } from "./core/db.js";
 import { startAutoLock } from "./core/autolock.js";
-import { initSecurityPanel, backupState } from "./core/security_panel.js";
-import { noticeDialog } from "./core/dialog.js";
 import { handleRequest, onDataChanged } from "./api/index.js";
+import { SupabaseClient, switchableStore } from "./sync/supabase.js";
+import { Sync } from "./sync/sync.js";
+import { showLogin, showChoosePassword, showMessage, hideLogin } from "./sync/login.js";
+import { initAccountPanel } from "./sync/account_panel.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./sync/config.js";
 
 // Don't run inside someone else's page (click-jacking). GitHub Pages can't send the header for this.
 if (window.top !== window.self) {
@@ -21,101 +23,93 @@ if (window.top !== window.self) {
   throw new Error("This page cannot be shown inside a frame.");
 }
 
-const lockRoot = document.getElementById("lock-root");
-
-function fatal(message) {
-  const card = document.createElement("div");
-  card.className = "lock-card";
-  const brand = document.createElement("div");
-  brand.className = "lock-brand";
-  brand.textContent = "Ninja Program";
-  const text = document.createElement("p");
-  text.className = "lock-error show";
-  text.textContent = message;
-  card.append(brand, text);
-  const wrap = document.createElement("div");
-  wrap.className = "lock-wrap";
-  wrap.appendChild(card);
-  lockRoot.replaceChildren(wrap);
-}
-
-// Keep this copy's data separate from any other copy hosted under the same github.io address.
 const scope = "ninja" + location.pathname.replace(/index\.html$/, "").replace(/\/*$/, "/");
 setStorageScope(scope);
 
-// Only one tab may have the app open at a time (two tabs would overwrite each other's saves).
-async function claimThisTab() {
-  if (!navigator.locks) return true;
-  for (let attempt = 0; attempt < 12; attempt++) {
-    const got = await new Promise((resolve) => {
-      navigator.locks.request(scope + "session", { ifAvailable: true }, (lock) => {
-        resolve(!!lock);
-        return lock ? new Promise(() => {}) : undefined; // held until this page closes
-      });
-    });
-    if (got) return true;
-    await new Promise((r) => setTimeout(r, 250)); // the previous page may still be shutting down
-  }
-  return false;
+/** An invite or password-reset link puts the one-time login in the address after "#". */
+function takeLinkTokens() {
+  const hash = location.hash.replace(/^#/, "");
+  if (!hash) return null;
+  const q = new URLSearchParams(hash);
+  if (!q.get("access_token") && !q.get("error_description")) return null;
+  history.replaceState(null, "", location.pathname + location.search);   // don't leave tokens in the address bar
+  if (q.get("error_description")) return { error: q.get("error_description").replace(/\+/g, " ") };
+  return { access_token: q.get("access_token"), refresh_token: q.get("refresh_token"), expires_in: q.get("expires_in"), invite: q.get("type") === "invite" };
 }
 
 async function main() {
-  if (!window.isSecureContext || !globalThis.crypto || !crypto.subtle || !window.indexedDB || typeof WebAssembly !== "object") {
-    return fatal("This browser can't run the app securely. Open it over https:// (or http://localhost) in an up-to-date Chrome, Edge, Firefox or Safari.");
+  if (!window.isSecureContext || !window.crypto || typeof WebAssembly !== "object") {
+    return showMessage("This browser can't run the app securely. Open it over https:// in an up-to-date Chrome, Edge, Firefox or Safari.");
   }
-  if (!(await claimThisTab())) {
-    return fatal("Ninja Program is already open in another tab or window. Close that one, then reload this page.");
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return showMessage("The team database isn't connected yet. Open js/sync/config.js and fill in your Supabase URL and key (see SETUP.md).");
   }
+  try { await loadEngine(); } catch (error) { return showMessage("Could not start the database engine: " + error.message); }
 
-  try {
-    await loadEngine();
-  } catch (error) {
-    return fatal("Could not start the database engine: " + error.message);
+  const store = switchableStore(scope + ".login");
+  const client = new SupabaseClient({ url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY, store });
+
+  const link = takeLinkTokens();
+  let notice = "";
+  if (link && link.error) notice = "That link didn't work: " + link.error + " Ask for a new one.";
+  else if (link) { await showChoosePassword(client, link, { invite: link.invite }); }
+
+  for (;;) {
+    if (!client.signedIn) await showLogin(client, store, { notice });
+    notice = "";
+    showMessage("Loading the team's data...");
+    openEmptyForSync();
+    const sync = new Sync(client, { intervalMs: Math.max(1000, Number(prefs.get("pollMs", 15000)) || 15000) });
+    try {
+      await sync.start();
+      return begin(client, sync, store);
+    } catch (error) {
+      sync.stop();
+      if (error.code === "NO_SESSION" || error.status === 401) { notice = "Please sign in again."; continue; }
+      if (error.status === 404 || /relation|schema cache/i.test(error.message || "")) {
+        return showMessage("Signed in, but the database tables aren't set up. Run supabase/schema.sql in Supabase (see SETUP.md). Details: " + error.message);
+      }
+      return showMessage("Could not load the team's data: " + error.message, { retry: () => location.reload() });
+    }
   }
+}
 
-  const session = new Session(idbStorage(scope));
-  await runLock(session);          // returns once the vault is unlocked
-
-  // ---- the vault is open: connect the screens to it ----
-  onDataChanged(() => session.scheduleSave());
+async function begin(client, sync, store) {
+  onDataChanged(() => sync.request());
   window.ninjaApi = (method, path, body, file) => handleRequest(method, path, body, file);
 
-  let locking = false;
-  async function lockNow({ force = true } = {}) {
-    if (locking) return;
-    if (!force && session.state === "error") {
-      await noticeDialog("Your latest changes aren't saved",
-        "The browser couldn't save your newest changes, and locking now would lose them. Open the Security tab and download a backup first.");
-      return;
-    }
-    locking = true;
-    try { await session.close(); } finally { location.reload(); }
+  let leaving = false;
+  async function signOut() {
+    if (leaving) return;
+    leaving = true;
+    sync.stop();
+    try { await Promise.race([sync.syncNow(), new Promise((r) => setTimeout(r, 4000))]); } catch (_) { /* best effort */ }
+    await client.signOut();
+    location.reload();
   }
 
-  // Save-status indicator + backup reminder in the top bar.
+  // Status pill in the top bar.
   const statusEl = document.getElementById("saveStatus");
-  const nudge = document.getElementById("backupNudge");
   function updateBar() {
-    const s = session.state;
-    statusEl.dataset.state = s;
-    statusEl.textContent = s === "pending" || s === "saving" ? "Saving..."
-      : s === "error" ? "NOT SAVED - download a backup"
-      : s === "saved" ? "Saved" : "";
-    statusEl.title = s === "error" && session.lastError ? String(session.lastError.message || session.lastError) : "";
-    nudge.style.display = backupState().due ? "inline-block" : "none";
+    const s = sync.state;
+    statusEl.dataset.state = s === "error" ? "error" : s === "synced" ? "saved" : "pending";
+    statusEl.textContent = s === "synced" ? "Synced" : s === "syncing" ? "Syncing..." : s === "error" ? "NOT SAVED - offline?" : "";
+    statusEl.title = s === "error" && sync.lastError ? String(sync.lastError.message) : "";
   }
-  session.onStatus(updateBar);
-  setInterval(updateBar, 60000);
-  nudge.addEventListener("click", () => document.querySelector('.tab-btn[data-tab="security"]').click());
-  document.getElementById("lockNowBtn").addEventListener("click", () => lockNow({ force: false }));
+  sync.onStatus(updateBar);
   updateBar();
+  document.getElementById("lockNowBtn").textContent = "Sign out";
+  document.getElementById("lockNowBtn").title = "Send any changes and sign out";
+  document.getElementById("lockNowBtn").addEventListener("click", signOut);
+  const nudge = document.getElementById("backupNudge");
+  if (nudge) nudge.remove();
 
-  // Don't lose work: warn if the tab is closed mid-save, and save when the tab is hidden.
+  // Don't lose work: warn if the tab is closed while changes haven't reached the server.
   window.addEventListener("beforeunload", (e) => {
-    if (!locking && (session.state === "pending" || session.state === "saving")) { e.preventDefault(); e.returnValue = ""; }
+    if (!leaving && sync.unsynced) { e.preventDefault(); e.returnValue = ""; }
   });
-  document.addEventListener("visibilitychange", () => { if (document.hidden && session.state === "pending") session.saveNow(); });
-  window.addEventListener("pagehide", () => { if (session.state === "pending") session.saveNow(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) sync.syncNow(); });
+  window.addEventListener("online", () => sync.syncNow());
 
   // The original screens (js/app.js) start themselves when loaded.
   await new Promise((resolve, reject) => {
@@ -125,10 +119,24 @@ async function main() {
     script.onerror = () => reject(new Error("Could not load the app screens (js/app.js)."));
     document.body.appendChild(script);
   });
+  hideLogin();
 
-  initSecurityPanel({ session, lockNow, refreshApp: () => window.ninjaReload() });
-  startAutoLock(() => lockNow({ force: true }));
-  updateBar();
+  // A teammate changed something: refresh the screens, but never while you're typing or in a dialog.
+  let waiting = false;
+  function busy() {
+    const a = document.activeElement;
+    return !!document.querySelector(".modal-overlay.open") || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("#app"));
+  }
+  function refreshWhenIdle() {
+    if (busy()) { waiting = true; return; }
+    waiting = false;
+    window.ninjaReload();
+  }
+  sync.onRemoteChange(refreshWhenIdle);
+  setInterval(() => { if (waiting) refreshWhenIdle(); }, 3000);
+
+  initAccountPanel({ client, sync, signOut, refreshApp: () => window.ninjaReload() });
+  startAutoLock(signOut);
 }
 
-main().catch((error) => fatal("Something went wrong while starting: " + (error && error.message ? error.message : error)));
+main().catch((error) => showMessage("Something went wrong while starting: " + (error && error.message ? error.message : error)));

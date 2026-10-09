@@ -11,7 +11,7 @@ import { ApiError } from "../lib/util.js";
 const routes = [];
 let changeListener = () => {};
 
-/** Called after any request that changed the database (used to trigger an encrypted save). */
+/** Called after any request that changed the database (used to trigger a sync). */
 export function onDataChanged(fn) { changeListener = fn; }
 
 export function route(method, pattern, handler) {

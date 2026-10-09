@@ -1,18 +1,18 @@
-// Locks the app after a period with no clicks or typing, and when the device wakes up
-// after being away longer than that. Locking = save, forget the key, reload the page
+// Signs out after a period with no clicks or typing, and when the device wakes up
+// after being away longer than that. Locking = send any changes, sign out, reload the page
 // (the reload also clears the screen's contents from memory).
 
 import { prefs } from "./storage.js";
 
 export const AUTOLOCK_CHOICES = [
-  { minutes: 5, label: "After 5 minutes" },
   { minutes: 15, label: "After 15 minutes" },
   { minutes: 30, label: "After 30 minutes" },
   { minutes: 60, label: "After 1 hour" },
+  { minutes: 240, label: "After 4 hours" },
   { minutes: 0, label: "Never (not recommended)" },
 ];
 
-export const DEFAULT_AUTOLOCK_MINUTES = 15;
+export const DEFAULT_AUTOLOCK_MINUTES = 60;
 
 export function getAutolockMinutes() {
   const v = Number(prefs.get("autolockMinutes", DEFAULT_AUTOLOCK_MINUTES));

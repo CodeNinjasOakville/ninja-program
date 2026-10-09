@@ -2,7 +2,7 @@
   "name": "ninja-program",
   "private": true,
   "scripts": {
-    "test": "node tests/test_routes.mjs && node tests/test_vault.mjs",
+    "test": "node tests/test_routes.mjs && node tests/test_sync.mjs",
     "serve": "python3 -m http.server 8000"
   }
 }

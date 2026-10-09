@@ -1,17 +1,17 @@
-# Ninja Program (GitHub Pages edition)
+# Ninja Program — team version (GitHub Pages + Supabase)
 
 The same Ninja Program screens as before (Leads, Belts, Active Ninjas, Rewards, Reward History, Settings,
-certificates, totem tags) but running **entirely in your browser**. There is no server. The database is SQLite
-(compiled to WebAssembly) kept in your browser and **encrypted with a key protected by your password**.
+certificates, totem tags), now usable by your whole team from anywhere.
+
+- **The website** is static files on **GitHub Pages** (free).
+- **The shared data** lives in a **Supabase** database (free plan) behind **per-person email + password logins**.
+- Everyone sees the same data; changes appear on teammates' screens within about 15 seconds.
 
 | Read this | When |
 |---|---|
-| [SETUP.md](SETUP.md) | Putting it on GitHub Pages and first use — start here |
+| [SETUP.md](SETUP.md) | Setting it up (about 30 minutes, once) — start here |
 | [SECURITY.md](SECURITY.md) | What is and isn't protected, honestly |
-| [CHANGING.md](CHANGING.md) | How to add a field, a page, a route, change the certificate, etc. |
+| [CHANGING.md](CHANGING.md) | How to add a field, a route, a team member, change the certificate… |
 
-Key facts: data lives in **one browser on one device**; move it with the encrypted backup file
-(Security tab). The repository must be **public** on the free GitHub plan, so the code is public — the password
-and recovery key are what protect the data. Keep backups.
-
-Run the tests: `npm test` (needs Node 20+). Run locally: `python3 -m http.server 8000`, open http://localhost:8000.
+How it works inside: the original screens and routes (`js/app.js`, `js/api/*`) still run in the browser against a
+local SQLite copy; `js/sync/` sends each change to Supabase and pulls teammates' changes. Tests: `npm test`.

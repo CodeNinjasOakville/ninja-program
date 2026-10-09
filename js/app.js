@@ -54,7 +54,7 @@ function el(tag, attrs, children) {
 }
 
 // The "server" now lives in the browser (js/api/*). window.ninjaApi is installed by
-// js/main.js after the vault is unlocked; it accepts the same paths the Flask routes had.
+// js/main.js after sign-in; it accepts the same paths the Flask routes had.
 async function api(path, options) {
   const method = ((options && options.method) || "GET").toUpperCase();
   const body = options && options.body ? JSON.parse(options.body) : undefined;

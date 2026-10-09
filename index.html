@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex, nofollow">
   
@@ -14,7 +14,7 @@
 </head>
 <body class="locked">
 
-  <!-- Lock screen / setup / dialogs are drawn here by js/core/lock.js -->
+  <!-- Lock screen / setup / dialogs are drawn here by js/sync/login.js -->
   <div id="lock-root">
     <div class="lock-wrap"><div class="lock-card">
       <div class="lock-brand">Ninja Program</div>
@@ -33,11 +33,10 @@
       <button class="tab-btn" data-tab="rewards">Rewards</button>
       <button class="tab-btn" data-tab="history">Reward History</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="security">Security</button>
+      <button class="tab-btn" data-tab="security">Account</button>
       <span class="spacer"></span>
-      <button id="backupNudge" class="nudge-btn" style="display:none;" title="You have changes that are not in a backup">Backup due</button>
       <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
-      <button id="lockNowBtn" class="btn-secondary lock-btn" title="Save and lock the app">Lock</button>
+      <button id="lockNowBtn" class="btn-secondary lock-btn" title="Sign out">Sign out</button>
     </nav>
 
     <!-- ============ LEADS ============ -->
@@ -203,7 +202,7 @@
       </div>
     </section>
 
-    <!-- ============ SECURITY ============ -->
+    <!-- ============ ACCOUNT ============ -->
     <section id="tab-security" class="tab-panel">
       <div id="securityRoot"></div>
     </section>

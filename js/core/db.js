@@ -224,3 +224,83 @@ export function describeImportable(bytes) {
     probe.close();
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Team-sync helpers (used by js/sync/sync.js). The local SQLite copy is a working copy of the
+// shared Supabase tables; "pk" is the column that identifies a row.
+export const SYNC_TABLES = {
+  leads: { pk: "id" },
+  belt_entries: { pk: "id" },
+  receipts: { pk: "id" },
+  active_ninjas: { pk: "id" },
+  settings: { pk: "key" },
+};
+
+export function tableColumns(table) {
+  return conn.all(`PRAGMA table_info(${table})`).map((c) => c.name);
+}
+
+/** Start from an empty local copy with NO starter settings (the server's settings are loaded instead). */
+export function openEmptyForSync() {
+  openDatabase();
+  database.run("DELETE FROM settings");
+  dirty = false;
+}
+
+/** Add any missing starter settings (only used when the shared database has none yet). */
+export function seedDefaultSettings() {
+  for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+    database.run("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", [key, JSON.stringify(value)]);
+  }
+}
+
+/**
+ * Replace everything in the working copy with the contents of an old ninja_system.db.
+ * The sync engine then pushes the difference to the shared database.
+ */
+export function replaceFromLegacy(bytes) {
+  const check = describeImportable(bytes);
+  if (!check.ok) throw new Error(check.reason);
+  const src = new SQL.Database(bytes);
+  try {
+    const have = new Set((src.exec("SELECT name FROM sqlite_master WHERE type='table'")[0]?.values || []).map((v) => v[0]));
+    database.run("BEGIN");
+    try {
+      for (const table of Object.keys(SYNC_TABLES)) {
+        if (!have.has(table)) continue;
+        const cols = tableColumns(table);
+        const srcCols = (src.exec(`PRAGMA table_info(${table})`)[0]?.values || []).map((v) => v[1]);
+        const use = cols.filter((c) => srcCols.includes(c));
+        database.run(`DELETE FROM ${table}`);
+        const res = src.exec(`SELECT ${use.join(",")} FROM ${table}`);
+        const stmt = `INSERT OR REPLACE INTO ${table} (${use.join(",")}) VALUES (${use.map(() => "?").join(",")})`;
+        for (const row of res.length ? res[0].values : []) database.run(stmt, clean(row));
+      }
+      if (!have.has("settings")) seedDefaultSettings();
+      database.run("COMMIT");
+    } catch (error) {
+      try { database.run("ROLLBACK"); } catch (_) { /* nothing to roll back */ }
+      throw error;
+    }
+    dirty = true;
+  } finally {
+    src.close();
+  }
+}
+
+/** Change a row's id (sync uses this to swap a temporary local id for the server's id). */
+export function renameRowIds(table, pairs) {
+  database.run("BEGIN");
+  try {
+    for (const [from] of pairs) database.run(`UPDATE ${table} SET id = -id WHERE id = ?`, [from]);
+    for (const [from, to] of pairs) database.run(`UPDATE ${table} SET id = ? WHERE id = ?`, [to, -from]);
+    database.run("COMMIT");
+  } catch (error) {
+    try { database.run("ROLLBACK"); } catch (_) { /* nothing to roll back */ }
+    throw error;
+  }
+}
+
+/** For tests that simulate two people: take the open working copy out / put one back. */
+export function detachDatabase() { const d = database; database = null; return d; }
+export function attachDatabase(handle) { database = handle; }
