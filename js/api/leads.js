@@ -28,6 +28,68 @@ const LEAD_HEADER_ALIASES = {
   "gbs completed?": "gbs_completed", "gbs completed": "gbs_completed",
 };
 
+// ---- Duplicate detection (same phone number or email; names are allowed to repeat) ----
+
+// "(905) 555-1234", "905.555.1234" and "+1 905 555 1234" all become "9055551234".
+export function phoneKey(value) {
+  let digits = pyStr(value).replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  return digits.length >= 7 ? digits : "";
+}
+
+export function emailKey(value) {
+  const email = pyStr(value).trim().toLowerCase();
+  return email.includes("@") ? email : "";
+}
+
+// Remembers phone/email of every lead (existing plus anything added during this request)
+// so one import can catch repeats both against the table and within the file itself.
+function duplicateChecker() {
+  const phones = new Map();
+  const emails = new Map();
+  const remember = (data, label) => {
+    const p = phoneKey(data.phone_number), e = emailKey(data.email);
+    if (p && !phones.has(p)) phones.set(p, label);
+    if (e && !emails.has(e)) emails.set(e, label);
+  };
+  for (const row of conn.all("SELECT entry_number, ninja_name, phone_number, email FROM leads ORDER BY entry_number")) {
+    remember(row, `existing entry #${row.entry_number} (${row.ninja_name})`);
+  }
+  return {
+    remember,
+    /** Returns e.g. "same phone number as existing entry #4 (Kim Lee)", or "" if no clash. */
+    find(data) {
+      const reasons = [];
+      const p = phoneKey(data.phone_number), e = emailKey(data.email);
+      if (p && phones.has(p)) reasons.push(`same phone number as ${phones.get(p)}`);
+      if (e && emails.has(e)) reasons.push(`same email as ${emails.get(e)}`);
+      return reasons.join("; ");
+    },
+  };
+}
+
+// Bulk add / CSV import: duplicates are skipped and reported, everything else is added.
+function insertLeadsSkippingDuplicates(entries, label) {
+  const checker = duplicateChecker();
+  const duplicates = [];
+  const fresh = [];
+  const freshLabels = [];
+  entries.forEach((entry, i) => {
+    const name = pyStr(entry.ninja_name).trim();
+    const clash = name ? checker.find(entry) : "";
+    if (clash) {
+      duplicates.push(`${label(i)}: skipped "${name}" - ${clash}.`);
+      return;
+    }
+    if (name) checker.remember(entry, `${label(i)} of this file (${name})`);
+    fresh.push(entry);
+    freshLabels.push(label(i));
+  });
+  const result = insertAll(fresh, insertLead, (i) => freshLabels[i]);
+  if (duplicates.length) result.duplicates = duplicates;
+  return result;
+}
+
 export function insertLead(data) {
   const ninjaName = pyStr(data.ninja_name).trim();
   if (!ninjaName) throw new ApiError("Ninja Name is required.");
@@ -55,7 +117,14 @@ route("GET", "/api/leads", ({ query }) => {
   return conn.all("SELECT * FROM leads ORDER BY entry_number");
 });
 
-route("POST", "/api/leads", ({ body }) => ({ ok: true, entry_number: insertLead(body) }));
+// A single add warns (409) about a duplicate; the form resends with allow_duplicate to add it anyway.
+route("POST", "/api/leads", ({ body }) => {
+  if (!body.allow_duplicate && pyStr(body.ninja_name).trim()) {
+    const clash = duplicateChecker().find(body);
+    if (clash) throw new ApiError(`This looks like a duplicate: ${clash}.`, 409);
+  }
+  return { ok: true, entry_number: insertLead(body) };
+});
 
 route("POST", "/api/leads/bulk", ({ body }) => {
   const lines = nonBlankLines(body.text);
@@ -64,7 +133,7 @@ route("POST", "/api/leads/bulk", ({ body }) => {
     const parts = splitBulkLine(line);
     return Object.fromEntries(LEAD_FIELDS.map((f, i) => [f, i < parts.length ? parts[i].trim() : ""]));
   });
-  return insertAll(entries, insertLead, (i) => `Line ${i + 1}`);
+  return insertLeadsSkippingDuplicates(entries, (i) => `Line ${i + 1}`);
 });
 
 route("POST", "/api/leads/import", async ({ file }) => {
@@ -84,7 +153,7 @@ route("POST", "/api/leads/import", async ({ file }) => {
   const entries = records.map((rec) =>
     Object.fromEntries(Object.entries(headerMap).map(([header, field]) => [field, pyStr(rec[header]).trim()]))
   );
-  return insertAll(entries, insertLead, (i) => `Row ${i + 2}`); // row 1 is the header
+  return insertLeadsSkippingDuplicates(entries, (i) => `Row ${i + 2}`); // row 1 is the header
 });
 
 route("PUT", "/api/leads/:id", ({ params, body }) => {

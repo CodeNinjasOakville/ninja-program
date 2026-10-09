@@ -233,16 +233,44 @@ function setActiveView(view) {
   document.getElementById("activeListWrap").style.display = view === "list" ? "block" : "none";
 }
 
-function renderActiveSchedule(rows) {
+function personKey(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function sortSessions(sessions) {
+  return sessions
+    .slice()
+    .sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || timeSlotSortKey(a.time_slot) - timeSlotSortKey(b.time_slot));
+}
+
+// "Monday" -> "Mon"; anything that isn't a normal weekday is shown as typed.
+function shortDay(day) {
+  const d = String(day || "").trim();
+  return /^(mon|tue|wed|thu|fri|sat|sun)/i.test(d) ? d.slice(0, 3) : d || "No day";
+}
+
+function sessionLabel(r) {
+  return `${shortDay(r.day)} ${r.time_slot || "no time"}`.trim();
+}
+
+// Every Ninja's sessions, keyed by name - always from the full roster so a search
+// doesn't hide the other classes a Ninja takes.
+function groupSessionsByPerson(rows) {
+  const byPerson = {};
+  rows.forEach((r) => {
+    const key = personKey(r.name);
+    (byPerson[key] = byPerson[key] || []).push(r);
+  });
+  Object.keys(byPerson).forEach((key) => { byPerson[key] = sortSessions(byPerson[key]); });
+  return byPerson;
+}
+
+function renderActiveSchedule(rows, allRows) {
   const container = document.getElementById("activeSchedule");
   container.innerHTML = "";
 
   const knownDays = settings.schedule_days || [];
-  const sessionsByName = {};
-  rows.forEach((r) => {
-    const key = r.name.trim().toLowerCase();
-    (sessionsByName[key] = sessionsByName[key] || []).push(r);
-  });
+  const sessionsByName = groupSessionsByPerson(allRows);
   const byDay = {};
   rows.forEach((row) => {
     const day = row.day && row.day.trim() ? row.day.trim() : "Unscheduled";
@@ -289,31 +317,40 @@ function renderActiveSchedule(rows) {
         bySlot[slot]
           .sort((a, b) => (b.is_ai - a.is_ai) || a.name.localeCompare(b.name))
           .forEach((row) => {
-            const chip = el("div", { class: "ninja-chip" + (row.is_ai ? " ai" : "") });
-            const label = el("span", { class: "chip-name", text: row.name });
-            chip.appendChild(label);
-            if (row.is_ai) chip.appendChild(el("span", { class: "ai-badge", text: "AI" }));
+            const key = personKey(row.name);
+            const chip = el("div", { class: "ninja-chip" + (row.is_ai ? " ai" : ""), "data-person": key });
+            const label = el("span", { class: "chip-name" });
+            label.appendChild(el("span", { text: row.name }));
+            if (row.is_ai) label.appendChild(el("span", { class: "ai-badge", text: "AI" }));
 
-            const mine = sessionsByName[row.name.trim().toLowerCase()] || [];
-            if (mine.length > 1) {
-              const summary = mine
-                .slice()
-                .sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || timeSlotSortKey(a.time_slot) - timeSlotSortKey(b.time_slot))
-                .map((r) => `${r.day || "No day"} ${r.time_slot || ""}${r.is_ai ? " (AI)" : ""}`.trim())
-                .join("\n");
-              chip.appendChild(el("span", {
-                class: "multi-badge",
-                title: `${row.name} has ${mine.length} sessions:\n${summary}`,
-                text: "\u00d7" + mine.length,
+            // Spell out the Ninja's other classes right on the chip.
+            const others = (sessionsByName[key] || []).filter((r) => r.id !== row.id);
+            if (others.length) {
+              label.appendChild(el("span", {
+                class: "chip-also",
+                text: "Also: " + others.map((r) => sessionLabel(r) + (r.is_ai ? " (AI)" : "")).join(", "),
               }));
+              // Hovering one chip highlights the same Ninja's other classes.
+              chip.addEventListener("mouseenter", () => {
+                container.querySelectorAll(".ninja-chip").forEach((c) => {
+                  c.classList.toggle("same-person", c.dataset.person === key);
+                });
+              });
+              chip.addEventListener("mouseleave", () => {
+                container.querySelectorAll(".ninja-chip.same-person").forEach((c) => c.classList.remove("same-person"));
+              });
             }
+            chip.appendChild(label);
 
             const actions = el("span", { class: "chip-actions" });
             const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit / move", text: "\u270e" });
             editBtn.addEventListener("click", () => openActiveModal(row));
             const delBtn = el("button", { class: "btn-icon", title: "Remove", text: "\u2716" });
             delBtn.addEventListener("click", async () => {
-              const ok = await confirmDialog("Remove Entry", `Remove "${row.name}" from the active roster?`);
+              const message = others.length
+                ? `Remove only ${row.name}'s ${sessionLabel(row)} class? Their other ${others.length} class${others.length === 1 ? "" : "es"} will stay.`
+                : `Remove "${row.name}" from the active roster?`;
+              const ok = await confirmDialog("Remove Entry", message);
               if (!ok) return;
               await api(`/api/active-ninjas/${row.id}`, { method: "DELETE" });
               loadActiveNinjas();
@@ -335,53 +372,66 @@ function renderActiveSchedule(rows) {
 async function loadActiveNinjas() {
   const search = document.getElementById("activeSearch").value;
   const rows = await api("/api/active-ninjas?q=" + encodeURIComponent(search));
+  const allRows = search.trim() ? await api("/api/active-ninjas") : rows;
   activeRowsCache = rows;
   const tbody = document.querySelector("#activeTable tbody");
   tbody.innerHTML = "";
 
-  document.getElementById("activeEmpty").style.display = rows.length ? "none" : "block";
-  document.getElementById("activeCountLabel").textContent =
-    rows.length ? `${rows.length} Ninja${rows.length === 1 ? "" : "s"} shown` : "";
+  const sessionsByName = groupSessionsByPerson(allRows);
+  // List view: one row per Ninja (only those matching the search), sorted by name.
+  const people = uniqueNames(rows.map((r) => r.name))
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ name, sessions: sessionsByName[personKey(name)] || [] }));
 
-  renderActiveSchedule(rows);
+  document.getElementById("activeEmpty").style.display = rows.length ? "none" : "block";
+  document.getElementById("activeCountLabel").textContent = rows.length
+    ? `${people.length} Ninja${people.length === 1 ? "" : "s"}, ${rows.length} class${rows.length === 1 ? "" : "es"} shown`
+    : "";
+
+  renderActiveSchedule(rows, allRows);
   setActiveView(activeView);
 
-  const visibleIds = new Set(rows.map((r) => r.id));
+  const visibleIds = new Set(allRows.map((r) => r.id));
   activeSelected = new Set([...activeSelected].filter((id) => visibleIds.has(id)));
 
-  rows.forEach((row) => {
+  people.forEach((person) => {
+    const ids = person.sessions.map((r) => r.id);
     const tr = el("tr");
-    if (row.is_ai) tr.classList.add("ai-row");
 
     const checkbox = el("input", { type: "checkbox" });
-    checkbox.checked = activeSelected.has(row.id);
+    checkbox.checked = ids.length > 0 && ids.every((id) => activeSelected.has(id));
     checkbox.addEventListener("change", () => {
-      if (checkbox.checked) activeSelected.add(row.id);
-      else activeSelected.delete(row.id);
+      ids.forEach((id) => (checkbox.checked ? activeSelected.add(id) : activeSelected.delete(id)));
       updateActiveSelectionUI();
     });
     tr.appendChild(el("td", {}, [checkbox]));
 
-    const nameCell = el("td");
-    nameCell.appendChild(document.createTextNode(row.name));
-    if (row.is_ai) nameCell.appendChild(el("span", { class: "ai-badge", text: "AI" }));
-    tr.appendChild(nameCell);
+    tr.appendChild(el("td", { class: "person-name", text: person.name }));
+    tr.appendChild(el("td", { class: "class-count", text: String(person.sessions.length) }));
 
-    tr.appendChild(el("td", { text: row.day || "" }));
-    tr.appendChild(el("td", { text: row.time_slot || "" }));
-    tr.appendChild(el("td", { text: row.is_ai ? "Yes" : "" }));
+    const sessionsCell = el("td", { class: "sessions-cell" });
+    person.sessions.forEach((r) => {
+      const pill = el("span", { class: "session-pill" + (r.is_ai ? " ai" : ""), text: sessionLabel(r) });
+      if (r.is_ai) pill.appendChild(el("span", { class: "ai-badge", text: "AI" }));
+      sessionsCell.appendChild(pill);
+    });
+    tr.appendChild(sessionsCell);
 
     const actionsCell = el("td", { class: "actions-cell" });
 
-    const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit / change time", text: "\u270e" });
-    editBtn.addEventListener("click", () => openActiveModal(row));
+    const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit name / classes", text: "\u270e" });
+    editBtn.addEventListener("click", () => openActiveModal(person.sessions[0]));
     actionsCell.appendChild(editBtn);
 
-    const delBtn = el("button", { class: "btn-icon", title: "Remove", text: "\u2716" });
+    const delBtn = el("button", { class: "btn-icon", title: "Remove (all classes)", text: "\u2716" });
     delBtn.addEventListener("click", async () => {
-      const ok = await confirmDialog("Remove Entry", `Remove "${row.name}" from the active roster?`);
+      const message = ids.length > 1
+        ? `Remove "${person.name}" and all ${ids.length} of their classes from the active roster?`
+        : `Remove "${person.name}" from the active roster?`;
+      const ok = await confirmDialog("Remove Ninja", message);
       if (!ok) return;
-      await api(`/api/active-ninjas/${row.id}`, { method: "DELETE" });
+      await api("/api/active-ninjas/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) });
+      ids.forEach((id) => activeSelected.delete(id));
       loadActiveNinjas();
     });
     actionsCell.appendChild(delBtn);
@@ -391,7 +441,7 @@ async function loadActiveNinjas() {
   });
 
   document.getElementById("activeSelectAll").checked =
-    rows.length > 0 && rows.every((r) => activeSelected.has(r.id));
+    people.length > 0 && people.every((p) => p.sessions.every((r) => activeSelected.has(r.id)));
 
   updateActiveSelectionUI();
 }
@@ -401,8 +451,9 @@ document.getElementById("viewListBtn").addEventListener("click", () => setActive
 
 function updateActiveSelectionUI() {
   const count = activeSelected.size;
+  const ninjas = new Set(activeRowsCache.filter((r) => activeSelected.has(r.id)).map((r) => personKey(r.name))).size;
   document.getElementById("activeSelectionCount").textContent =
-    count > 0 ? `${count} selected` : "";
+    count > 0 ? `${ninjas || count} Ninja${(ninjas || count) === 1 ? "" : "s"} selected` : "";
   document.getElementById("deleteSelectedActiveBtn").style.display =
     count > 0 ? "inline-block" : "none";
 }
@@ -428,7 +479,7 @@ document.getElementById("deleteSelectedActiveBtn").addEventListener("click", asy
   const count = activeSelected.size;
   const ok = await confirmDialog(
     "Delete Selected",
-    `Permanently remove ${count} selected Ninja${count === 1 ? "" : "s"} from the active roster? This cannot be undone.`
+    `Permanently remove the selected Ninjas (${count} class${count === 1 ? "" : "es"} in total) from the active roster? This cannot be undone.`
   );
   if (!ok) return;
   await api("/api/active-ninjas/bulk-delete", {
@@ -647,6 +698,18 @@ document.getElementById("bulkActiveSubmit").addEventListener("click", async () =
 // LEADS
 // ================================================================
 
+// Same normalizing as js/api/leads.js, so "(905) 555-1234" matches "905-555-1234".
+function leadPhoneKey(value) {
+  let digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+  return digits.length >= 7 ? digits : "";
+}
+
+function leadEmailKey(value) {
+  const email = String(value || "").trim().toLowerCase();
+  return email.includes("@") ? email : "";
+}
+
 async function loadLeads() {
   const search = document.getElementById("leadsSearch").value;
   const rows = await api("/api/leads?q=" + encodeURIComponent(search));
@@ -659,8 +722,18 @@ async function loadLeads() {
   const visibleIds = new Set(rows.map((r) => r.id));
   leadsSelected = new Set([...leadsSelected].filter((id) => visibleIds.has(id)));
 
+  // Flag leads that share a phone number or email with another lead.
+  const phoneCounts = {}, emailCounts = {};
+  rows.forEach((r) => {
+    const p = leadPhoneKey(r.phone_number), e = leadEmailKey(r.email);
+    if (p) phoneCounts[p] = (phoneCounts[p] || 0) + 1;
+    if (e) emailCounts[e] = (emailCounts[e] || 0) + 1;
+  });
+
   rows.forEach((row) => {
     const tr = el("tr");
+    const dupPhone = phoneCounts[leadPhoneKey(row.phone_number)] > 1;
+    const dupEmail = emailCounts[leadEmailKey(row.email)] > 1;
 
     const checkbox = el("input", { type: "checkbox" });
     checkbox.checked = leadsSelected.has(row.id);
@@ -676,7 +749,15 @@ async function loadLeads() {
       row.email, row.age, row.gbs_type, row.staff_name, row.coding_experience,
       row.comments, row.gbs_date, row.gbs_time, row.post_gbs_follow_up,
       row.gbs_completed, row.lead_date,
-    ].forEach((value) => tr.appendChild(el("td", { text: value || "" })));
+    ].forEach((value, i) => {
+      const td = el("td", { text: value || "", ...(i === 9 ? { class: "comments-cell" } : {}) });
+      if ((i === 3 && dupPhone) || (i === 4 && dupEmail)) {
+        td.classList.add("dup-cell");
+        td.title = `Another lead has this same ${i === 3 ? "phone number" : "email"}`;
+        td.appendChild(el("span", { class: "dup-badge", text: "Duplicate" }));
+      }
+      tr.appendChild(td);
+    });
 
     const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit", text: "\u270e" });
     editBtn.addEventListener("click", () => openLeadModal(row));
@@ -797,6 +878,20 @@ document.getElementById("printTotemTagsBtn").addEventListener("click", async () 
 
 // ---- Import CSV (Leads) ----
 
+// Duplicates (same phone or email as a lead already in the list) are skipped by the import;
+// list them so staff can check them by hand.
+function showLeadImportResult(bannerId, result, verb) {
+  const duplicates = result.duplicates || [];
+  let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} ${verb}.`;
+  if (duplicates.length) {
+    message += `\n\n${duplicates.length} possible duplicate${duplicates.length === 1 ? " was" : "s were"} skipped:\n` +
+      duplicates.join("\n");
+  }
+  if (result.errors.length) message += "\n\n" + result.errors.join("\n");
+  const type = duplicates.length ? "warning" : result.successCount > 0 ? "success" : "error";
+  showBanner(bannerId, message, type);
+}
+
 document.getElementById("importLeadsBtn").addEventListener("click", () => {
   document.getElementById("importLeadsFile").click();
 });
@@ -808,9 +903,7 @@ document.getElementById("importLeadsFile").addEventListener("change", async (e) 
 
   try {
     const result = await apiUpload("/api/leads/import", file);
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} imported.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("leadsImportBanner", message, result.successCount > 0 ? "success" : "error");
+    showLeadImportResult("leadsImportBanner", result, "imported");
     if (result.successCount > 0) loadLeads();
   } catch (error) {
     showBanner("leadsImportBanner", error.message, "error");
@@ -883,7 +976,14 @@ document.getElementById("leadModalSubmit").addEventListener("click", async () =>
     if (editingLeadId) {
       await api(`/api/leads/${editingLeadId}`, { method: "PUT", body: JSON.stringify(data) });
     } else {
-      await api("/api/leads", { method: "POST", body: JSON.stringify(data) });
+      try {
+        await api("/api/leads", { method: "POST", body: JSON.stringify(data) });
+      } catch (error) {
+        if (error.status !== 409) throw error;
+        const ok = await confirmDialog("Possible Duplicate", error.message + "\n\nAdd this entry anyway?");
+        if (!ok) return;
+        await api("/api/leads", { method: "POST", body: JSON.stringify({ ...data, allow_duplicate: true }) });
+      }
     }
     closeLeadModal();
     loadLeads();
@@ -916,9 +1016,7 @@ document.getElementById("bulkLeadSubmit").addEventListener("click", async () => 
 
   try {
     const result = await api("/api/leads/bulk", { method: "POST", body: JSON.stringify({ text }) });
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} added.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("bulkLeadBanner", message, result.successCount > 0 ? "success" : "error");
+    showLeadImportResult("bulkLeadBanner", result, "added");
     if (result.successCount > 0) {
       document.getElementById("bulkLeadText").value = "";
       loadLeads();
