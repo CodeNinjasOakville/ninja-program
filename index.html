@@ -42,11 +42,12 @@
     <!-- ============ LEADS ============ -->
     <section id="tab-leads" class="tab-panel active">
       <div class="panel-header">
-        <input type="text" id="leadsSearch" placeholder="Search by ninja or parent name&hellip;">
+        <input type="text" id="leadsSearch" placeholder="Search anything: name, phone, email, comments&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="leadsSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedLeadsBtn" style="display:none;">Delete Selected</button>
         <button class="btn-danger-outline" id="deleteAllLeadsBtn">Delete All</button>
+        <button class="btn-secondary" id="showDuplicatesBtn" title="Show only leads that share a phone number or email">Show Duplicates</button>
         <button class="btn-secondary" id="printTotemTagsBtn">Print Totem Tags</button>
         <button class="btn-secondary" id="importLeadsBtn">Import CSV</button>
         <input type="file" id="importLeadsFile" accept=".csv" style="display:none;">
@@ -75,7 +76,7 @@
     <!-- ============ BELTS ============ -->
     <section id="tab-belts" class="tab-panel">
       <div class="panel-header">
-        <input type="text" id="beltsSearch" placeholder="Search by name&hellip;">
+        <input type="text" id="beltsSearch" placeholder="Search name, belt, or date&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="beltsSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedBeltsBtn" style="display:none;">Delete Selected</button>
@@ -104,7 +105,7 @@
     <!-- ============ ACTIVE NINJAS ============ -->
     <section id="tab-active" class="tab-panel">
       <div class="panel-header">
-        <input type="text" id="activeSearch" placeholder="Search by name, day, or time&hellip;">
+        <input type="text" id="activeSearch" placeholder="Search name, day, time, or &quot;AI&quot;&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="activeSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedActiveBtn" style="display:none;">Delete Selected</button>
@@ -146,6 +147,7 @@
     <section id="tab-rewards" class="tab-panel">
       <div class="panel-header">
         <h2 class="panel-title">Outstanding Rewards</h2>
+        <input type="text" id="rewardsSearch" class="panel-search" placeholder="Search&hellip;">
         <div class="spacer"></div>
         <button class="btn-secondary" id="refreshRewardsBtn">Refresh</button>
         <button class="btn-secondary" id="printTotemTagsRewardsBtn">Print Totem Tags</button>
@@ -175,6 +177,7 @@
     <section id="tab-history" class="tab-panel">
       <div class="panel-header">
         <h2 class="panel-title">Reward History (Receipts)</h2>
+        <input type="text" id="historySearch" class="panel-search" placeholder="Search name, reward, date, details&hellip;">
         <div class="spacer"></div>
         <button class="btn-secondary" id="refreshHistoryBtn">Refresh</button>
       </div>

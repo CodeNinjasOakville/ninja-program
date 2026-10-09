@@ -1,6 +1,6 @@
 import { conn } from "../core/db.js";
 import { route } from "./router.js";
-import { bulkDelete, insertAll, readUpload } from "./common.js";
+import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
 
@@ -13,9 +13,10 @@ function insertBelt(data) {
 }
 
 route("GET", "/api/belts", ({ query }) => {
-  const search = (query.q || "").trim().toLowerCase();
+  const search = (query.q || "").trim();
   if (search) {
-    return conn.all("SELECT * FROM belt_entries WHERE lower(name) LIKE ? ORDER BY id DESC", [`%${search}%`]);
+    const { where, params } = searchClause(["name", "old_belt", "new_belt", "created_at"], search);
+    return conn.all(`SELECT * FROM belt_entries WHERE ${where} ORDER BY id DESC`, params);
   }
   return conn.all("SELECT * FROM belt_entries ORDER BY id DESC");
 });

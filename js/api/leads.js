@@ -1,6 +1,6 @@
 import { conn } from "../core/db.js";
 import { route } from "./router.js";
-import { bulkDelete, insertAll, readUpload } from "./common.js";
+import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine, todayISO } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
 
@@ -106,13 +106,11 @@ export function insertLead(data) {
 }
 
 route("GET", "/api/leads", ({ query }) => {
-  const search = (query.q || "").trim().toLowerCase();
+  const search = (query.q || "").trim();
   if (search) {
-    const like = `%${search}%`;
-    return conn.all(
-      "SELECT * FROM leads WHERE lower(ninja_name) LIKE ? OR lower(parent_name) LIKE ? ORDER BY entry_number",
-      [like, like]
-    );
+    // Any column: name, parent, phone, email, comments, dates, entry #...
+    const { where, params } = searchClause(["entry_number", ...LEAD_FIELDS, "lead_date"], search, "phone_number");
+    return conn.all(`SELECT * FROM leads WHERE ${where} ORDER BY entry_number`, params);
   }
   return conn.all("SELECT * FROM leads ORDER BY entry_number");
 });

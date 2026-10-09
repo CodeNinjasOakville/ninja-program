@@ -4,6 +4,7 @@
 
 let settings = {};
 let leadsSelected = new Set();
+let leadsDuplicatesOnly = false;
 let beltsSelected = new Set();
 let activeSelected = new Set();
 let editingActiveId = null;
@@ -120,6 +121,13 @@ function confirmDialog(title, message) {
   });
 }
 
+
+// True when `search` appears in any of the values (case-insensitive). Used by the
+// tabs that filter in the browser (Rewards, Reward History).
+function matchesSearch(values, search) {
+  const q = String(search || "").trim().toLowerCase();
+  return !q || values.some((v) => String(v === null || v === undefined ? "" : v).toLowerCase().includes(q));
+}
 
 // ---- Totem tags (shared by every tab) ----
 
@@ -712,28 +720,50 @@ function leadEmailKey(value) {
 
 async function loadLeads() {
   const search = document.getElementById("leadsSearch").value;
-  const rows = await api("/api/leads?q=" + encodeURIComponent(search));
+  const allRows = await api("/api/leads");
+  let rows = search.trim() ? await api("/api/leads?q=" + encodeURIComponent(search)) : allRows;
   const tbody = document.querySelector("#leadsTable tbody");
   tbody.innerHTML = "";
 
+  // Flag leads that share a phone number or email with another lead (checked against
+  // every lead, not just the ones the search shows).
+  const phoneCounts = {}, emailCounts = {};
+  allRows.forEach((r) => {
+    const p = leadPhoneKey(r.phone_number), e = leadEmailKey(r.email);
+    if (p) phoneCounts[p] = (phoneCounts[p] || 0) + 1;
+    if (e) emailCounts[e] = (emailCounts[e] || 0) + 1;
+  });
+  const isDupPhone = (r) => phoneCounts[leadPhoneKey(r.phone_number)] > 1;
+  const isDupEmail = (r) => emailCounts[leadEmailKey(r.email)] > 1;
+  const isDuplicate = (r) => isDupPhone(r) || isDupEmail(r);
+
+  const dupCount = allRows.filter(isDuplicate).length;
+  const dupBtn = document.getElementById("showDuplicatesBtn");
+  if (!dupCount) leadsDuplicatesOnly = false;
+  dupBtn.textContent = leadsDuplicatesOnly ? "Show All Leads" : `Show Duplicates (${dupCount})`;
+  dupBtn.classList.toggle("active", leadsDuplicatesOnly);
+
+  if (leadsDuplicatesOnly) {
+    // Only the duplicates, with each matching group listed together.
+    const groupKey = (r) => (isDupPhone(r) ? "p" + leadPhoneKey(r.phone_number) : "e" + leadEmailKey(r.email));
+    rows = rows
+      .filter(isDuplicate)
+      .sort((a, b) => groupKey(a).localeCompare(groupKey(b)) || a.entry_number - b.entry_number);
+  }
+
   document.getElementById("leadsEmpty").style.display = rows.length ? "none" : "block";
+  document.getElementById("leadsEmpty").textContent = leadsDuplicatesOnly
+    ? "No duplicates match this search."
+    : search.trim() ? "No leads match this search." : "No leads yet.";
 
   // Drop selections for rows no longer visible/existing.
   const visibleIds = new Set(rows.map((r) => r.id));
   leadsSelected = new Set([...leadsSelected].filter((id) => visibleIds.has(id)));
 
-  // Flag leads that share a phone number or email with another lead.
-  const phoneCounts = {}, emailCounts = {};
-  rows.forEach((r) => {
-    const p = leadPhoneKey(r.phone_number), e = leadEmailKey(r.email);
-    if (p) phoneCounts[p] = (phoneCounts[p] || 0) + 1;
-    if (e) emailCounts[e] = (emailCounts[e] || 0) + 1;
-  });
-
   rows.forEach((row) => {
     const tr = el("tr");
-    const dupPhone = phoneCounts[leadPhoneKey(row.phone_number)] > 1;
-    const dupEmail = emailCounts[leadEmailKey(row.email)] > 1;
+    const dupPhone = isDupPhone(row);
+    const dupEmail = isDupEmail(row);
 
     const checkbox = el("input", { type: "checkbox" });
     checkbox.checked = leadsSelected.has(row.id);
@@ -789,6 +819,11 @@ function updateLeadsSelectionUI() {
 }
 
 document.getElementById("leadsSearch").addEventListener("input", () => loadLeads());
+
+document.getElementById("showDuplicatesBtn").addEventListener("click", () => {
+  leadsDuplicatesOnly = !leadsDuplicatesOnly;
+  loadLeads();
+});
 
 document.getElementById("leadsSelectAll").addEventListener("change", (e) => {
   document.querySelectorAll("#leadsTable tbody tr").forEach((tr) => {
@@ -1315,11 +1350,17 @@ async function loadRewards() {
 
   const tbody = document.querySelector("#rewardsTable tbody");
   tbody.innerHTML = "";
-  document.getElementById("rewardsEmpty").style.display = summary.rows.length ? "none" : "block";
 
-  rewardsRowsCache = summary.rows;
+  const search = document.getElementById("rewardsSearch").value;
+  const rows = summary.rows.filter((row) =>
+    matchesSearch([row.name, row.progression, ...REWARD_COLUMNS.map(([key]) => row[key])], search));
+  const empty = document.getElementById("rewardsEmpty");
+  empty.style.display = rows.length ? "none" : "block";
+  empty.textContent = summary.rows.length ? "No rewards match this search." : "Everyone is all caught up - nothing outstanding.";
 
-  summary.rows.forEach((row) => {
+  rewardsRowsCache = rows;
+
+  rows.forEach((row) => {
     const tr = el("tr");
     tr.appendChild(el("td", { text: row.name }));
     tr.appendChild(el("td", { text: row.progression }));
@@ -1340,6 +1381,7 @@ async function loadRewards() {
 }
 
 document.getElementById("refreshRewardsBtn").addEventListener("click", loadRewards);
+document.getElementById("rewardsSearch").addEventListener("input", () => loadRewards());
 
 document.getElementById("printTotemTagsRewardsBtn").addEventListener("click", () => {
   printTotemTagsForNames(
@@ -1433,11 +1475,16 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
 // ================================================================
 
 async function loadHistory() {
-  const rows = await api("/api/rewards/history");
+  const all = await api("/api/rewards/history");
+  const search = document.getElementById("historySearch").value;
+  const rows = all.filter((row) =>
+    matchesSearch([row.date, row.name, row.reward_type, row.amount, row.details, row.entry_type], search));
   const tbody = document.querySelector("#historyTable tbody");
   tbody.innerHTML = "";
 
-  document.getElementById("historyEmpty").style.display = rows.length ? "none" : "block";
+  const empty = document.getElementById("historyEmpty");
+  empty.style.display = rows.length ? "none" : "block";
+  empty.textContent = all.length ? "No rewards match this search." : "No rewards have been recorded yet.";
 
   rows.forEach((row) => {
     const tr = el("tr");
@@ -1461,6 +1508,7 @@ async function loadHistory() {
 }
 
 document.getElementById("refreshHistoryBtn").addEventListener("click", loadHistory);
+document.getElementById("historySearch").addEventListener("input", () => loadHistory());
 
 // ================================================================
 // SETTINGS

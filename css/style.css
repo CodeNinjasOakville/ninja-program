@@ -87,7 +87,9 @@ input[type="text"]:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(59, 91, 219, 0.15);
 }
 
-#leadsSearch, #beltsSearch { width: 260px; }
+#leadsSearch, #beltsSearch { width: 300px; }
+.panel-search { width: 240px; }
+#showDuplicatesBtn.active { background: #fff3d6; border-color: #f5c86a; color: #8a5a00; }
 
 button {
   font-family: inherit;

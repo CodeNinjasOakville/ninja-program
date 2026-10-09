@@ -1,6 +1,6 @@
 import { conn } from "../core/db.js";
 import { route } from "./router.js";
-import { bulkDelete, insertAll, readUpload } from "./common.js";
+import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import { parseActiveNinjasCsv } from "../lib/schedule_import.js";
 
@@ -13,13 +13,12 @@ function insertActiveNinja(data) {
 }
 
 route("GET", "/api/active-ninjas", ({ query }) => {
-  const search = (query.q || "").trim().toLowerCase();
+  const search = (query.q || "").trim();
   if (search) {
-    const like = `%${search}%`;
-    return conn.all(
-      "SELECT * FROM active_ninjas WHERE lower(name) LIKE ? OR lower(day) LIKE ? OR lower(time_slot) LIKE ? ORDER BY day, time_slot, name",
-      [like, like, like]
-    );
+    // "ai" also finds everyone who is an Assistant Instructor.
+    const { where, params } = searchClause(["name", "day", "time_slot", "notes"], search);
+    const aiOnly = search.toLowerCase() === "ai" ? " OR is_ai = 1" : "";
+    return conn.all(`SELECT * FROM active_ninjas WHERE ${where}${aiOnly} ORDER BY day, time_slot, name`, params);
   }
   return conn.all("SELECT * FROM active_ninjas ORDER BY day, time_slot, name");
 });
