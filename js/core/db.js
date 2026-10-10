@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS receipts (
 );
 
 -- Currently-enrolled Ninjas and which weekly session they attend.
--- is_ai marks a Ninja who is also an Assistant Instructor for that session.
+-- is_ai marks a session that is an Artificial Intelligence class.
 CREATE TABLE IF NOT EXISTS active_ninjas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

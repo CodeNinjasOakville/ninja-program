@@ -357,7 +357,7 @@ function renderActiveSchedule(rows, allRows) {
         const block = el("div", { class: "slot-block" });
         block.appendChild(el("div", { class: "slot-time", text: slot }));
 
-        // Instructors first, then alphabetical.
+        // Artificial Intelligence sessions first, then alphabetical.
         bySlot[slot]
           .sort((a, b) => (b.is_ai - a.is_ai) || a.name.localeCompare(b.name))
           .forEach((row) => {
@@ -721,7 +721,7 @@ function renderSessionRows() {
     timeInput.value = sess.time_slot || "";
     timeInput.addEventListener("input", () => { sess.time_slot = timeInput.value; });
 
-    const aiBox = el("input", { type: "checkbox", title: "Assistant Instructor for this session" });
+    const aiBox = el("input", { type: "checkbox", title: "Artificial Intelligence class" });
     aiBox.checked = !!sess.is_ai;
     aiBox.addEventListener("change", () => { sess.is_ai = aiBox.checked; });
     const aiCell = el("label", { class: "session-ai" }, [aiBox]);

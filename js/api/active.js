@@ -18,7 +18,7 @@ function insertActiveNinja(data) {
 route("GET", "/api/active-ninjas", ({ query }) => {
   const search = (query.q || "").trim();
   if (search) {
-    // "ai" also finds everyone who is an Assistant Instructor.
+    // "ai" also finds every Artificial Intelligence session.
     const { where, params } = searchClause(["name", "day", "time_slot", "notes"], search);
     const aiOnly = search.toLowerCase() === "ai" ? " OR is_ai = 1" : "";
     return conn.all(`SELECT * FROM active_ninjas WHERE ${where}${aiOnly} ORDER BY day, time_slot, name`, params);

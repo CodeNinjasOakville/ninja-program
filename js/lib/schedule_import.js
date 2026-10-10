@@ -19,7 +19,7 @@ const FLAT_HEADER_ALIASES = {
   "time slot": "time_slot",
   "time": "time_slot",
   "ai": "is_ai",
-  "assistant instructor": "is_ai",
+  "artificial intelligence": "is_ai",
 };
 
 const cell = (v) => String(v == null ? "" : v);
@@ -126,8 +126,8 @@ export function parseFlatCsv(rows) {
 //   Date, Time, Class name, Participant name, Customer name, Email address, Phone number
 // The same weekly class therefore shows up two or three times; those repeats are merged.
 
-// "AI Academies" is a class (artificial intelligence), like CREATE and JR. It has nothing to do with
-// the Assistant Instructor flag, which this export never sets.
+// "AI Academies" is the Artificial Intelligence class, so those sessions get the AI badge.
+const AI_CLASS_RE = /^ai\b/i;
 
 /** Minutes since midnight for the start of "04:00 PM" / "4 PM - 5 PM"; null if there is no time. */
 export function slotStartMinutes(slot) {
@@ -187,6 +187,7 @@ export function parseClassSchedule(rows) {
     const key = `${name.toLowerCase()}|${day}|${start}`;
     if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, classes: [] });
     const entry = merged.get(key);
+    if (AI_CLASS_RE.test(className)) entry.is_ai = true;
     if (className && !entry.classes.includes(className)) entry.classes.push(className);
   }
   return [...merged.values()];
