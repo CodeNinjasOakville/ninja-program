@@ -117,9 +117,11 @@
         <button class="btn-primary" id="addActiveBtn">+ Add Ninja</button>
       </div>
       <p class="muted">
-        CSV import accepts either a flat Name/Day/Time Slot/AI file, or the
-        wide weekly "Session Schedule" export straight from the spreadsheet -
-        it's auto-detected. A Ninja marked <span class="ai-badge">AI</span> is also
+        CSV import accepts a flat Name/Day/Time Slot/AI file, the
+        wide weekly "Session Schedule" export straight from the spreadsheet, or the
+        MyStudio "All classes schedule" export (Class schedule &rarr; Export &rarr; next 14 days) -
+        it's auto-detected. The MyStudio export only adds Ninjas who aren't here yet, and
+        shows you the list first. A Ninja marked <span class="ai-badge">AI</span> is also
         an Assistant Instructor for that session; they stay in the list, just flagged.
       </p>
       <div class="banner" id="activeImportBanner"></div>
@@ -134,7 +136,7 @@
           <thead>
             <tr>
               <th><input type="checkbox" id="activeSelectAll"></th>
-              <th>Name</th><th>Classes</th><th>Sessions</th><th></th>
+              <th>Name</th><th>Belt</th><th>Classes</th><th>Sessions</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -339,6 +341,54 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="bulkActiveCancel">Close</button>
         <button class="btn-primary" id="bulkActiveSubmit">Add Entries</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Review a MyStudio class schedule import ============ -->
+  <div class="modal-overlay" id="rosterModalOverlay">
+    <div class="modal wide">
+      <h2>Import from MyStudio</h2>
+      <p class="muted" id="rosterSummary"></p>
+      <div class="banner error" id="rosterError"></div>
+      <div id="rosterNewSection">
+        <div class="review-head">
+          <label><input type="checkbox" id="rosterSelectAll"> <span id="rosterNewTitle"></span></label>
+        </div>
+        <div class="review-list" id="rosterNewList"></div>
+      </div>
+      <div id="rosterSimilarSection">
+        <div class="review-head"><span id="rosterSimilarTitle"></span></div>
+        <p class="muted">These look like someone already on the roster under a shorter name.
+          Tick one only if it really is a different Ninja.</p>
+        <div class="review-list" id="rosterSimilarList"></div>
+      </div>
+      <details id="rosterExistingSection">
+        <summary class="muted" id="rosterExistingTitle"></summary>
+        <p class="muted" id="rosterExistingList"></p>
+      </details>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="rosterCancel">Cancel</button>
+        <button class="btn-primary" id="rosterSubmit">Add Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Which belt each totem tag goes on ============ -->
+  <div class="modal-overlay" id="tagBeltsModalOverlay">
+    <div class="modal">
+      <h2>Belts for these totem tags</h2>
+      <p class="muted">Same order as the printed sheet: left to right, then down.
+        Belts come from each Ninja's latest entry in the Belts tab.</p>
+      <p class="muted" id="tagBeltsSummary"></p>
+      <div class="review-list">
+        <table id="tagBeltsTable">
+          <thead><tr><th>#</th><th>Name</th><th>Belt</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-primary" id="tagBeltsClose">Done</button>
       </div>
     </div>
   </div>

@@ -215,3 +215,17 @@ export function getOutstandingCertificates(conn) {
   }
   return outstanding;
 }
+
+/**
+ * The belt each Ninja is on right now: the "new belt" of their most recent belt entry.
+ * Returned as a Map of lower-cased name -> belt ("Green"). Ninjas with no belt entry are absent.
+ */
+export function getCurrentBelts(conn) {
+  const current = new Map();
+  for (const row of conn.all("SELECT name, new_belt FROM belt_entries ORDER BY id")) {
+    const name = String(row.name || "").trim().toLowerCase();
+    const belt = normalizeBelt(row.new_belt);
+    if (name && belt) current.set(name, formatBeltName(belt));
+  }
+  return current;
+}

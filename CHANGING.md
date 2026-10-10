@@ -25,6 +25,8 @@ Do the Supabase step *before* publishing the new website files, or saves will fa
 **Add / remove a team member:** Supabase → Authentication → Users.
 **Change the certificate:** replace `assets/certificate_template.pdf`, then `pip install pdfplumber` and `python3 tools/extract_layout.py`; adjust `js/pdf/certificates.js` if positions change.
 **Totem tag look:** `js/pdf/totem_tags.js`.
+**MyStudio schedule import:** `parseClassSchedule` in `js/lib/schedule_import.js` reads the export; the review-then-add routes are in `js/api/active.js` (`/import`, `/import/confirm`). It only ever adds Ninjas whose name is not on the roster.
+**Current belt:** the "new belt" of a Ninja's latest row in the Belts tab (`getCurrentBelts` in `js/lib/rewards.js`). A row with a blank old belt records a starting belt without creating any rewards.
 **How often it syncs:** `intervalMs` in `js/main.js` (default 15 s). **Auto sign-out choices:** `js/core/autolock.js`.
 **Update SQLite:** `python3 tools/fetch_sqljs_from_npm.py <version>` (checks npm's integrity hash).
 **Roles (e.g. read-only members):** not built. It would be done with a `profiles` table + stricter policies in `schema.sql`.

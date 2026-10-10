@@ -3,6 +3,7 @@ import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
+import { getCurrentBelts } from "../lib/rewards.js";
 
 function insertBelt(data) {
   const name = pyStr(data.name).trim();
@@ -24,6 +25,16 @@ route("GET", "/api/belts", ({ query }) => {
 route("POST", "/api/belts", ({ body }) => {
   insertBelt(body);
   return { ok: true };
+});
+
+// Body: {names: [...]} -> the belt each of those Ninjas is on now ("" when no belt entry exists),
+// in the same order. Used to say which belt each totem tag goes on.
+route("POST", "/api/belts/current", ({ body }) => {
+  const current = getCurrentBelts(conn);
+  return (body.names || []).map((n) => {
+    const name = pyStr(n).trim();
+    return { name, belt: current.get(name.toLowerCase()) || "" };
+  });
 });
 
 route("POST", "/api/belts/bulk", ({ body }) => {

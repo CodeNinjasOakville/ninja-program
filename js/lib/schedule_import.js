@@ -121,6 +121,77 @@ export function parseFlatCsv(rows) {
   return entries;
 }
 
+// ---- MyStudio "All classes schedule" export (Attendance > Class schedule > Export) ----
+// One row per Ninja per class per date, covering the next 14 days:
+//   Date, Time, Class name, Participant name, Customer name, Email address, Phone number
+// The same weekly class therefore shows up two or three times; those repeats are merged.
+
+// "AI Academies" is a class (artificial intelligence), like CREATE and JR. It has nothing to do with
+// the Assistant Instructor flag, which this export never sets.
+
+/** Minutes since midnight for the start of "04:00 PM" / "4 PM - 5 PM"; null if there is no time. */
+export function slotStartMinutes(slot) {
+  const m = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i.exec(slot || "");
+  if (!m) return null;
+  let hour = parseInt(m[1], 10);
+  let meridiem = (m[3] || "").toLowerCase();
+  if (!meridiem) {
+    const later = /(am|pm)/i.exec(slot);
+    meridiem = later ? later[1].toLowerCase() : "";
+  }
+  if (meridiem === "pm" && hour < 12) hour += 12;
+  if (meridiem === "am" && hour === 12) hour = 0;
+  return hour * 60 + (m[2] ? parseInt(m[2], 10) : 0);
+}
+
+/** 960 -> "4:00 PM" */
+export function formatStartTime(minutes) {
+  const hour = Math.floor(minutes / 60);
+  return `${hour % 12 || 12}:${String(minutes % 60).padStart(2, "0")} ${hour < 12 ? "AM" : "PM"}`;
+}
+
+// "JAKE RUAN" -> "Jake Ruan". Names that already have lower-case letters are left as typed.
+export function tidyName(raw) {
+  const name = cell(raw).trim().replace(/\s+/g, " ");
+  if (!/[A-Z]/.test(name) || name !== name.toUpperCase()) return name;
+  return name.toLowerCase().replace(/(^|[\s\-'])([a-z])/g, (_, lead, ch) => lead + ch.toUpperCase());
+}
+
+function classScheduleColumns(rows) {
+  if (!rows.length) return null;
+  const columns = {};
+  rows[0].forEach((c, i) => { columns[cell(c).trim().toLowerCase()] = i; });
+  const need = ["date", "time", "class name", "participant name"];
+  return need.every((h) => h in columns) ? columns : null;
+}
+
+export function looksLikeClassSchedule(rows) {
+  return !!classScheduleColumns(rows);
+}
+
+/** One entry per Ninja per weekly session: { name, day, start, is_ai, classes: [...] } */
+export function parseClassSchedule(rows) {
+  const columns = classScheduleColumns(rows);
+  if (!columns) return [];
+  const at = (row, header) => (columns[header] < row.length ? cell(row[columns[header]]).trim() : "");
+
+  const merged = new Map();
+  for (const row of rows.slice(1)) {
+    const name = tidyName(at(row, "participant name"));
+    if (!name) continue;
+    const weekday = at(row, "date").split(",")[0].trim();
+    const day = DAY_NAMES.has(weekday.toLowerCase()) ? weekday[0].toUpperCase() + weekday.slice(1).toLowerCase() : "";
+    const start = slotStartMinutes(at(row, "time"));
+    const className = at(row, "class name");
+
+    const key = `${name.toLowerCase()}|${day}|${start}`;
+    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, classes: [] });
+    const entry = merged.get(key);
+    if (className && !entry.classes.includes(className)) entry.classes.push(className);
+  }
+  return [...merged.values()];
+}
+
 export function parseActiveNinjasCsv(rawText) {
   const allRows = parseCSV(rawText);
   if (!allRows.length) return [];

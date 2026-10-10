@@ -1,8 +1,11 @@
-import { conn } from "../core/db.js";
+import { conn, getSetting } from "../core/db.js";
 import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
-import { parseActiveNinjasCsv } from "../lib/schedule_import.js";
+import {
+  formatStartTime, looksLikeClassSchedule, parseActiveNinjasCsv, parseClassSchedule, slotStartMinutes,
+} from "../lib/schedule_import.js";
+import { parseCSV } from "../lib/csv.js";
 
 function insertActiveNinja(data) {
   const name = pyStr(data.name).trim();
@@ -125,13 +128,100 @@ route("POST", "/api/active-ninjas/bulk", ({ body }) => {
   return insertAll(entries, insertActiveNinja, (i) => `Line ${i + 1}`);
 });
 
-// Weekly "Session Schedule" export or a flat Name/Day/Time Slot/AI CSV (auto-detected).
+// ---- MyStudio class-schedule import: review first, then add only the Ninjas who are new ----
+
+const personKey = (name) => pyStr(name).trim().toLowerCase();
+
+// "Daniel" or "Daniel K" already on the roster vs "Daniel Kinoshi" in the file: probably the
+// same Ninja under a shorter name, so it is offered for review instead of being added blindly.
+function looksLikeSamePerson(importedKey, existingKey) {
+  const a = importedKey.split(/\s+/);
+  const b = existingKey.split(/\s+/);
+  if (a[0] !== b[0]) return false;
+  if (a.length === 1 || b.length === 1) return true;
+  const lastA = a[a.length - 1];
+  const lastB = b[b.length - 1].replace(/\.$/, "");
+  return lastA.startsWith(lastB) || lastB.startsWith(lastA);
+}
+
+// Reuse the wording the roster already has for a start time ("4 PM - 5 PM") so imported Ninjas
+// land in the existing time blocks instead of creating a second block for the same hour.
+function slotLabeller(existingRows) {
+  const counts = {}; // "day|minutes" and "*|minutes" -> { label: timesUsed }
+  for (const row of existingRows) {
+    const label = pyStr(row.time_slot).trim();
+    const start = slotStartMinutes(label);
+    if (!label || start === null) continue;
+    for (const key of [`${pyStr(row.day).trim().toLowerCase()}|${start}`, `*|${start}`]) {
+      counts[key] = counts[key] || {};
+      counts[key][label] = (counts[key][label] || 0) + 1;
+    }
+  }
+  const mostUsed = (key) => Object.entries(counts[key] || {}).sort((x, y) => y[1] - x[1])[0]?.[0];
+  return (day, start) => {
+    if (start === null) return "";
+    return mostUsed(`${day.toLowerCase()}|${start}`) || mostUsed(`*|${start}`) || formatStartTime(start);
+  };
+}
+
+function previewClassSchedule(entries) {
+  const existingRows = conn.all("SELECT name, day, time_slot FROM active_ninjas");
+  const existingNames = new Map(); // key -> name as it is written on the roster
+  for (const row of existingRows) {
+    if (!existingNames.has(personKey(row.name))) existingNames.set(personKey(row.name), pyStr(row.name).trim());
+  }
+  const label = slotLabeller(existingRows);
+  const days = getSetting("schedule_days", []);
+  const dayIndex = (day) => (days.indexOf(day) === -1 ? 99 : days.indexOf(day));
+
+  const people = new Map();
+  for (const entry of entries) {
+    const key = personKey(entry.name);
+    if (!people.has(key)) people.set(key, { name: entry.name, sessions: [] });
+    people.get(key).sessions.push(entry);
+  }
+
+  const fresh = [];
+  const alreadyThere = [];
+  for (const [key, person] of people) {
+    if (existingNames.has(key)) {
+      alreadyThere.push(existingNames.get(key));
+      continue;
+    }
+    const similar = [...existingNames.keys()].find((existing) => looksLikeSamePerson(key, existing));
+    fresh.push({
+      name: person.name,
+      similar_to: similar ? existingNames.get(similar) : "",
+      sessions: person.sessions
+        .sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start - b.start)
+        .map((s) => ({ day: s.day, time_slot: label(s.day, s.start), is_ai: s.is_ai, notes: s.classes.join(" + ") })),
+    });
+  }
+
+  const byName = (a, b) => a.localeCompare(b);
+  return {
+    preview: true,
+    people: fresh.sort((a, b) => byName(a.name, b.name)),
+    alreadyThere: alreadyThere.sort(byName),
+  };
+}
+
+// Weekly "Session Schedule" export or a flat Name/Day/Time Slot/AI CSV (auto-detected) are added
+// straight away. A MyStudio "All classes schedule" export is NOT added here: it comes back as
+// {preview: true, people, alreadyThere} for the review window, which then calls .../import/confirm.
 route("POST", "/api/active-ninjas/import", async ({ file }) => {
   const raw = await readUpload(file);
   let parsed;
   try {
+    const rows = parseCSV(raw);
+    if (looksLikeClassSchedule(rows)) {
+      const entries = parseClassSchedule(rows);
+      if (!entries.length) throw new ApiError("That class schedule export has no Ninjas in it.");
+      return previewClassSchedule(entries);
+    }
     parsed = parseActiveNinjasCsv(raw);
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     throw new ApiError(`Could not read CSV: ${error.message}`);
   }
   if (!parsed.length) {
@@ -141,6 +231,33 @@ route("POST", "/api/active-ninjas/import", async ({ file }) => {
     );
   }
   return insertAll(parsed, insertActiveNinja, (i) => `Entry ${i + 1}`);
+});
+
+// Body: {people: [{name, sessions: [{day, time_slot, is_ai, notes}]}]} - the Ninjas ticked in the
+// review window. Anyone whose name is on the roster by now is skipped, never changed or doubled up.
+route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
+  const people = body.people || [];
+  if (!people.length) throw new ApiError("No Ninjas were selected.");
+
+  const onRoster = new Set(conn.all("SELECT name FROM active_ninjas").map((r) => personKey(r.name)));
+  const result = { addedNinjas: 0, addedSessions: 0, skipped: [] };
+
+  conn.transaction(() => {
+    for (const person of people) {
+      const name = pyStr(person.name).trim();
+      const sessions = person.sessions || [];
+      if (!name || !sessions.length) continue;
+      if (onRoster.has(personKey(name))) {
+        result.skipped.push(name);
+        continue;
+      }
+      onRoster.add(personKey(name));
+      for (const session of sessions) insertActiveNinja({ ...session, name });
+      result.addedNinjas += 1;
+      result.addedSessions += sessions.length;
+    }
+  });
+  return result;
 });
 
 route("DELETE", "/api/active-ninjas/:id", ({ params }) => {

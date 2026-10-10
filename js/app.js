@@ -179,10 +179,46 @@ async function generateTotemTagsByName(names, bannerId) {
       "success"
     );
     openDownload(result);
+    showTagBelts(names);
   } catch (error) {
     showBanner(bannerId, error.message, "error");
   }
 }
+
+// The tags themselves never change colour or wording - this is only an on-screen list of
+// which belt each printed tag gets attached to.
+async function showTagBelts(names) {
+  let rows;
+  try {
+    rows = await api("/api/belts/current", { method: "POST", body: JSON.stringify({ names }) });
+  } catch (error) {
+    return; // the tags still printed; the belt list is a convenience
+  }
+
+  const counts = {};
+  const tbody = document.querySelector("#tagBeltsTable tbody");
+  tbody.innerHTML = "";
+  rows.forEach((row, i) => {
+    counts[row.belt] = (counts[row.belt] || 0) + 1;
+    const beltCell = row.belt
+      ? el("td", { text: row.belt })
+      : el("td", { class: "belt-unknown", text: "Not recorded" });
+    tbody.appendChild(el("tr", {}, [el("td", { text: String(i + 1) }), el("td", { class: "person-name", text: row.name }), beltCell]));
+  });
+
+  const order = (settings.belt_options || []).map((b) => formatBeltName(b));
+  const summary = Object.keys(counts)
+    .filter((belt) => belt)
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .map((belt) => `${belt}: ${counts[belt]}`);
+  if (counts[""]) summary.push(`Not recorded: ${counts[""]}`);
+  document.getElementById("tagBeltsSummary").textContent = summary.join("  \u00b7  ");
+  document.getElementById("tagBeltsModalOverlay").classList.add("open");
+}
+
+document.getElementById("tagBeltsClose").addEventListener("click", () => {
+  document.getElementById("tagBeltsModalOverlay").classList.remove("open");
+});
 
 // ================================================================
 // TABS
@@ -399,6 +435,10 @@ async function loadActiveNinjas() {
   renderActiveSchedule(rows, allRows);
   setActiveView(activeView);
 
+  const beltByName = {};
+  (await api("/api/belts/current", { method: "POST", body: JSON.stringify({ names: people.map((p) => p.name) }) }))
+    .forEach((b) => { beltByName[personKey(b.name)] = b.belt; });
+
   const visibleIds = new Set(allRows.map((r) => r.id));
   activeSelected = new Set([...activeSelected].filter((id) => visibleIds.has(id)));
 
@@ -415,6 +455,8 @@ async function loadActiveNinjas() {
     tr.appendChild(el("td", {}, [checkbox]));
 
     tr.appendChild(el("td", { class: "person-name", text: person.name }));
+    const belt = beltByName[personKey(person.name)];
+    tr.appendChild(belt ? el("td", { text: belt }) : el("td", { class: "belt-unknown", text: "\u2014" }));
     tr.appendChild(el("td", { class: "class-count", text: String(person.sessions.length) }));
 
     const sessionsCell = el("td", { class: "sessions-cell" });
@@ -536,6 +578,10 @@ document.getElementById("importActiveFile").addEventListener("change", async (e)
 
   try {
     const result = await apiUpload("/api/active-ninjas/import", file);
+    if (result.preview) {
+      openRosterReview(result);
+      return;
+    }
     let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} imported.`;
     if (result.errors.length) message += "\n\n" + result.errors.join("\n");
     showBanner("activeImportBanner", message, result.successCount > 0 ? "success" : "error");
@@ -544,6 +590,109 @@ document.getElementById("importActiveFile").addEventListener("change", async (e)
     showBanner("activeImportBanner", error.message, "error");
   } finally {
     e.target.value = "";
+  }
+});
+
+// ---- Review window for a MyStudio "All classes schedule" export ----
+// Nothing is added until "Add Selected" is pressed, and Ninjas already on the roster are never touched.
+
+let rosterReviewPeople = [];   // [{name, similar_to, sessions, checkbox}]
+
+function rosterReviewRow(person, checked) {
+  const checkbox = el("input", { type: "checkbox" });
+  checkbox.checked = checked;
+  checkbox.addEventListener("change", updateRosterReviewUI);
+  person.checkbox = checkbox;
+
+  const name = el("span", { class: "person-name", text: person.name });
+  if (person.similar_to) {
+    name.appendChild(el("span", { class: "muted review-similar", text: `already here as "${person.similar_to}"?` }));
+  }
+  const sessions = el("span", { class: "sessions-cell" });
+  person.sessions.forEach((r) => {
+    const pill = el("span", { class: "session-pill" + (r.is_ai ? " ai" : ""), text: sessionLabel(r) });
+    if (r.is_ai) pill.appendChild(el("span", { class: "ai-badge", text: "AI" }));
+    sessions.appendChild(pill);
+  });
+  return el("label", { class: "review-row" }, [checkbox, name, sessions]);
+}
+
+function updateRosterReviewUI() {
+  const picked = rosterReviewPeople.filter((p) => p.checkbox.checked).length;
+  const fresh = rosterReviewPeople.filter((p) => !p.similar_to);
+  document.getElementById("rosterSelectAll").checked = fresh.length > 0 && fresh.every((p) => p.checkbox.checked);
+  const btn = document.getElementById("rosterSubmit");
+  btn.textContent = picked ? `Add ${picked} Ninja${picked === 1 ? "" : "s"}` : "Add Selected";
+  btn.disabled = picked === 0;
+}
+
+function openRosterReview(result) {
+  hideBanner("rosterError");
+  rosterReviewPeople = result.people;
+  const fresh = result.people.filter((p) => !p.similar_to);
+  const similar = result.people.filter((p) => p.similar_to);
+  const existing = result.alreadyThere;
+
+  if (!result.people.length) {
+    showBanner(
+      "activeImportBanner",
+      `Nothing to add - all ${existing.length} Ninja${existing.length === 1 ? "" : "s"} in that file are already on the roster.`,
+      "success"
+    );
+    return;
+  }
+
+  document.getElementById("rosterSummary").textContent =
+    "Only Ninjas who are not on the roster yet can be added. Existing entries are left exactly as they are.";
+
+  const newList = document.getElementById("rosterNewList");
+  newList.innerHTML = "";
+  fresh.forEach((p) => newList.appendChild(rosterReviewRow(p, true)));
+  document.getElementById("rosterNewTitle").textContent = `New Ninjas (${fresh.length})`;
+  document.getElementById("rosterNewSection").style.display = fresh.length ? "block" : "none";
+
+  const similarList = document.getElementById("rosterSimilarList");
+  similarList.innerHTML = "";
+  similar.forEach((p) => similarList.appendChild(rosterReviewRow(p, false)));
+  document.getElementById("rosterSimilarTitle").textContent = `Possibly already here (${similar.length})`;
+  document.getElementById("rosterSimilarSection").style.display = similar.length ? "block" : "none";
+
+  document.getElementById("rosterExistingTitle").textContent =
+    `Already on the roster - skipped (${existing.length})`;
+  document.getElementById("rosterExistingList").textContent = existing.join(", ");
+  document.getElementById("rosterExistingSection").style.display = existing.length ? "block" : "none";
+
+  updateRosterReviewUI();
+  document.getElementById("rosterModalOverlay").classList.add("open");
+}
+
+document.getElementById("rosterSelectAll").addEventListener("change", (e) => {
+  rosterReviewPeople.filter((p) => !p.similar_to).forEach((p) => { p.checkbox.checked = e.target.checked; });
+  updateRosterReviewUI();
+});
+
+document.getElementById("rosterCancel").addEventListener("click", () => {
+  document.getElementById("rosterModalOverlay").classList.remove("open");
+});
+
+document.getElementById("rosterSubmit").addEventListener("click", async () => {
+  const people = rosterReviewPeople
+    .filter((p) => p.checkbox.checked)
+    .map((p) => ({ name: p.name, sessions: p.sessions }));
+  const btn = document.getElementById("rosterSubmit");
+  btn.disabled = true;
+
+  try {
+    const result = await api("/api/active-ninjas/import/confirm", { method: "POST", body: JSON.stringify({ people }) });
+    let message = `${result.addedNinjas} Ninja${result.addedNinjas === 1 ? "" : "s"} added ` +
+      `(${result.addedSessions} class${result.addedSessions === 1 ? "" : "es"}).`;
+    if (result.skipped.length) message += `\n\nAlready on the roster, left untouched: ${result.skipped.join(", ")}`;
+    document.getElementById("rosterModalOverlay").classList.remove("open");
+    showBanner("activeImportBanner", message, result.addedNinjas > 0 ? "success" : "error");
+    loadActiveNinjas();
+  } catch (error) {
+    showBanner("rosterError", error.message, "error");
+    btn.disabled = false;
   }
 });
 
