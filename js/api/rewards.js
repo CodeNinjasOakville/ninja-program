@@ -59,6 +59,13 @@ route("DELETE", "/api/rewards/history/:id", ({ params }) => {
   return { ok: true };
 });
 
+// Undo every certificate transaction at once, so all certificates become owed again.
+route("POST", "/api/rewards/history/clear-certificates", () => {
+  const { count } = conn.get("SELECT COUNT(*) AS count FROM receipts WHERE reward_type = 'Certificate'");
+  conn.run("DELETE FROM receipts WHERE reward_type = 'Certificate'");
+  return { ok: true, deleted: count };
+});
+
 // ---------------- certificates ----------------
 
 route("GET", "/api/certificates/outstanding", () => rewards.getOutstandingCertificates(conn));

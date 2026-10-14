@@ -1735,6 +1735,21 @@ async function loadHistory() {
   });
 }
 
+document.getElementById("clearCertificatesBtn").addEventListener("click", async () => {
+  const ok = await confirmDialog(
+    "Remove All Certificates",
+    "Remove every Certificate transaction from Reward History? All certificates will show as owed again. This cannot be undone."
+  );
+  if (!ok) return;
+  try {
+    const result = await api("/api/rewards/history/clear-certificates", { method: "POST" });
+    showBanner("historyBanner", `Removed ${result.deleted} certificate transaction(s).`, "success");
+  } catch (error) {
+    showBanner("historyBanner", error.message, "error");
+  }
+  loadHistory();
+});
+
 document.getElementById("refreshHistoryBtn").addEventListener("click", loadHistory);
 document.getElementById("historySearch").addEventListener("input", () => loadHistory());
 
