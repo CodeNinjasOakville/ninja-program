@@ -119,6 +119,7 @@ export function getSummary(conn) {
   const rows = [];
   const totals = Object.fromEntries(FIELDS.map((f) => [f, { earned: 0, given: 0 }]));
   let totalLevelUps = 0;
+  const coinsRemaining = { large_coins: 0, small_coins: 0 };
 
   for (const name of Object.keys(earned).sort(lowerCompare)) {
     const person = earned[name];
@@ -133,6 +134,12 @@ export function getSummary(conn) {
       totals[field].given += personGiven[field];
       remaining[field] = Math.max(0, amount - personGiven[field]);
     }
+    // Coins are how the remaining Ninja Bucks get paid out ($10 large, $1 small), so they
+    // follow the bucks still owed rather than being tracked as a separate reward.
+    remaining.large_coins = Math.floor(remaining.ninja_bucks / 10);
+    remaining.small_coins = remaining.ninja_bucks % 10;
+    coinsRemaining.large_coins += remaining.large_coins;
+    coinsRemaining.small_coins += remaining.small_coins;
 
     if (Object.values(remaining).every((v) => v === 0)) continue;
 
@@ -156,6 +163,7 @@ export function getSummary(conn) {
       remaining: Math.max(0, totals[field].earned - totals[field].given),
     };
   }
+  for (const [field, left] of Object.entries(coinsRemaining)) overall[field].remaining = left;
   return { rows, overall };
 }
 

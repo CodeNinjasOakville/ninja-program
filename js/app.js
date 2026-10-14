@@ -1572,7 +1572,10 @@ async function loadRewards() {
     const card = el("div", { class: "totals-card" });
     card.appendChild(el("div", { class: "totals-card-label", text: OVERALL_LABELS[field] }));
     card.appendChild(el("div", { class: "totals-card-value", text: String(data.remaining) }));
-    card.appendChild(el("div", { class: "totals-card-sub", text: `${data.given} given / ${data.earned} earned` }));
+    // Coins are just how the owed Ninja Bucks get paid, so given/earned doesn't apply to them.
+    const isCoin = field === "large_coins" || field === "small_coins";
+    const sub = isCoin ? "to pay Ninja Bucks owed" : `${data.given} given / ${data.earned} earned`;
+    card.appendChild(el("div", { class: "totals-card-sub", text: sub }));
     totalsContainer.appendChild(card);
   });
 
