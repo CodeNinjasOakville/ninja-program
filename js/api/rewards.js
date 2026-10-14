@@ -31,6 +31,9 @@ route("POST", "/api/rewards/give", ({ body }) => {
     const earned = rewards.getEarnedForNinja(conn, name);
     const already = givenTotals.get(name) || rewards.emptyTotals();
     for (const field of Object.keys(amounts)) {
+      // Only check what is being given now: a field left at 0 must never block the rest,
+      // even if that field was over-given before (e.g. a reprinted certificate).
+      if (amounts[field] === 0) continue;
       const remaining = earned[field] - already[field];
       if (amounts[field] > remaining) {
         errors.push(`${name}: trying to give ${amounts[field]} ${titleCase(field)}, but only ${Math.max(0, remaining)} remain.`);
