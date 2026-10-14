@@ -6,6 +6,15 @@ import { ROOT, check, finish } from "./helpers.mjs";
 import { openDatabase, closeDatabase } from "../js/core/db.js";
 import { handleRequest } from "../js/api/index.js";
 
+// expected.json was recorded on 2026-10-09; pin "today" to that date so dated fields
+// (lead dates, receipt dates, PDF filenames) match on any day the tests run.
+const RealDate = Date;
+const FROZEN = new RealDate(2026, 9, 9, 12).getTime();
+globalThis.Date = class extends RealDate {
+  constructor(...args) { super(...(args.length ? args : [FROZEN])); }
+  static now() { return FROZEN; }
+};
+
 const scenario = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/scenario.json"), "utf8"));
 const expected = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/expected.json"), "utf8"));
 
