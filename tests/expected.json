@@ -1296,56 +1296,56 @@
   "status": 200,
   "data": [
    {
-    "belt": "Yellow",
-    "name": "Ethan Dolphin"
+    "name": "Ethan Dolphin",
+    "belt": "White"
    },
    {
-    "belt": "Orange",
-    "name": "Ethan Dolphin"
+    "name": "Ethan Dolphin",
+    "belt": "Yellow"
    },
    {
-    "belt": "Green",
-    "name": "Ethan Dolphin"
+    "name": "Ethan Dolphin",
+    "belt": "Orange"
    },
    {
-    "belt": "Yellow",
-    "name": "Zoe Zed"
+    "name": "Zoe Zed",
+    "belt": "White"
    },
    {
-    "belt": "Orange",
-    "name": "Zoe Zed"
+    "name": "Zoe Zed",
+    "belt": "Yellow"
    },
    {
-    "belt": "Green",
-    "name": "Zoe Zed"
+    "name": "Zoe Zed",
+    "belt": "Orange"
    },
    {
-    "belt": "Blue",
-    "name": "Zoe Zed"
+    "name": "Zoe Zed",
+    "belt": "Green"
    },
    {
-    "belt": "Purple",
-    "name": "Amy Bee"
+    "name": "Amy Bee",
+    "belt": "Blue"
    },
    {
-    "belt": "Brown",
-    "name": "Amy Bee"
+    "name": "Amy Bee",
+    "belt": "Purple"
    },
    {
-    "belt": "Red",
-    "name": "Amy Bee"
+    "name": "Amy Bee",
+    "belt": "Brown"
    },
    {
-    "belt": "Black",
-    "name": "Amy Bee"
+    "name": "Amy Bee",
+    "belt": "Red"
    },
    {
-    "belt": "Titanium",
-    "name": "Cal Kim"
+    "name": "Cal Kim",
+    "belt": "Gold"
    },
    {
-    "belt": "Black",
-    "name": "Dee Roe"
+    "name": "Dee Roe",
+    "belt": "Red"
    }
   ]
  },
@@ -1549,91 +1549,91 @@
  {
   "status": 200,
   "data": {
+   "rows": [
+    {
+     "name": "Amy Bee",
+     "progression": "Blue → Black",
+     "ninja_bucks_remaining": 20,
+     "large_coins_remaining": 2,
+     "small_coins_remaining": 0,
+     "prints_remaining": 4,
+     "certificates_remaining": 0,
+     "belts_remaining": 4
+    },
+    {
+     "name": "Cal Kim",
+     "progression": "Gold → Titanium",
+     "ninja_bucks_remaining": 5,
+     "large_coins_remaining": 0,
+     "small_coins_remaining": 5,
+     "prints_remaining": 1,
+     "certificates_remaining": 0,
+     "belts_remaining": 1
+    },
+    {
+     "name": "Dee Roe",
+     "progression": "Red → Black",
+     "ninja_bucks_remaining": 5,
+     "large_coins_remaining": 0,
+     "small_coins_remaining": 5,
+     "prints_remaining": 1,
+     "certificates_remaining": 0,
+     "belts_remaining": 1
+    },
+    {
+     "name": "Ethan Dolphin",
+     "progression": "White → Green",
+     "ninja_bucks_remaining": 15,
+     "large_coins_remaining": 1,
+     "small_coins_remaining": 5,
+     "prints_remaining": 2,
+     "certificates_remaining": 0,
+     "belts_remaining": 3
+    },
+    {
+     "name": "Zoe Zed",
+     "progression": "White → Yellow → Blue",
+     "ninja_bucks_remaining": 20,
+     "large_coins_remaining": 2,
+     "small_coins_remaining": 0,
+     "prints_remaining": 4,
+     "certificates_remaining": 0,
+     "belts_remaining": 4
+    }
+   ],
    "overall": {
-    "belts": {
-     "earned": 13,
-     "given": 0,
-     "remaining": 13
-    },
-    "certificates": {
-     "earned": 13,
-     "given": 13,
-     "remaining": 0
-    },
-    "large_coins": {
-     "earned": 5,
-     "given": 0,
-     "remaining": 5
-    },
     "levels_progressed": 13,
     "ninja_bucks": {
      "earned": 65,
      "given": 0,
      "remaining": 65
     },
-    "prints": {
-     "earned": 13,
-     "given": 1,
-     "remaining": 12
+    "large_coins": {
+     "earned": 5,
+     "given": 0,
+     "remaining": 5
     },
     "small_coins": {
      "earned": 15,
      "given": 0,
      "remaining": 15
+    },
+    "prints": {
+     "earned": 13,
+     "given": 1,
+     "remaining": 12
+    },
+    "certificates": {
+     "earned": 13,
+     "given": 14,
+     "remaining": 0
+    },
+    "belts": {
+     "earned": 13,
+     "given": 0,
+     "remaining": 13
     }
-   },
-   "rows": [
-    {
-     "belts_remaining": 4,
-     "certificates_remaining": 0,
-     "large_coins_remaining": 2,
-     "name": "Amy Bee",
-     "ninja_bucks_remaining": 20,
-     "prints_remaining": 4,
-     "progression": "Blue → Black",
-     "small_coins_remaining": 0
-    },
-    {
-     "belts_remaining": 1,
-     "certificates_remaining": 0,
-     "large_coins_remaining": 0,
-     "name": "Cal Kim",
-     "ninja_bucks_remaining": 5,
-     "prints_remaining": 1,
-     "progression": "Gold → Titanium",
-     "small_coins_remaining": 5
-    },
-    {
-     "belts_remaining": 1,
-     "certificates_remaining": 0,
-     "large_coins_remaining": 0,
-     "name": "Dee Roe",
-     "ninja_bucks_remaining": 5,
-     "prints_remaining": 1,
-     "progression": "Red → Black",
-     "small_coins_remaining": 5
-    },
-    {
-     "belts_remaining": 3,
-     "certificates_remaining": 0,
-     "large_coins_remaining": 1,
-     "name": "Ethan Dolphin",
-     "ninja_bucks_remaining": 15,
-     "prints_remaining": 2,
-     "progression": "White → Green",
-     "small_coins_remaining": 5
-    },
-    {
-     "belts_remaining": 4,
-     "certificates_remaining": 0,
-     "large_coins_remaining": 2,
-     "name": "Zoe Zed",
-     "ninja_bucks_remaining": 20,
-     "prints_remaining": 4,
-     "progression": "White → Yellow → Blue",
-     "small_coins_remaining": 0
-    }
-   ]
+   }
   }
  },
  {

@@ -178,7 +178,10 @@ export function getEarnedForNinja(conn, name) {
   return amounts;
 }
 
-/** Certificates still owed: one per belt level between old and new belt, minus those already printed. */
+/**
+ * Certificates still owed, minus those already printed. A certificate marks completing a belt,
+ * so moving Yellow -> Green earns Yellow and Orange certificates (the belts left behind), not Green.
+ */
 export function getOutstandingCertificates(conn) {
   const beltOrder = getBeltOrder(conn);
 
@@ -205,7 +208,7 @@ export function getOutstandingCertificates(conn) {
     const newIndex = beltOrder.indexOf(newBelt);
     if (oldIndex < 0 || newIndex < 0 || newIndex <= oldIndex) continue;
 
-    for (let i = oldIndex + 1; i <= newIndex; i++) {
+    for (let i = oldIndex; i < newIndex; i++) {
       const belt = beltOrder[i];
       const key = name.toLowerCase() + "\u0000" + belt;
       if (alreadyGiven.has(key) || seen.has(key)) continue;
