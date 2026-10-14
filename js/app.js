@@ -1243,6 +1243,13 @@ async function loadBelts() {
     [row.name, row.old_belt, row.new_belt, (row.created_at || "").slice(0, 10)]
       .forEach((value) => tr.appendChild(el("td", { text: value || "" })));
 
+    const actions = [];
+    if (certificateBeltsForEntry(row).length) {
+      const certBtn = el("button", { class: "btn-icon", title: "Print certificate(s)", text: "\ud83c\udf93" });
+      certBtn.addEventListener("click", () => openBeltCertModal(row));
+      actions.push(certBtn);
+    }
+
     const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit", text: "\u270e" });
     editBtn.addEventListener("click", () => openBeltModal(row));
 
@@ -1253,7 +1260,7 @@ async function loadBelts() {
       await api(`/api/belts/${row.id}`, { method: "DELETE" });
       loadBelts();
     });
-    tr.appendChild(el("td", { class: "actions-cell" }, [editBtn, delBtn]));
+    tr.appendChild(el("td", { class: "actions-cell" }, [...actions, editBtn, delBtn]));
 
     tbody.appendChild(tr);
   });
@@ -1416,6 +1423,78 @@ document.getElementById("beltModalSubmit").addEventListener("click", async () =>
     loadBelts();
   } catch (error) {
     showBanner("beltFormError", error.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ---- Print certificates for one belt entry ----
+// Same rule as getOutstandingCertificates: one certificate per belt completed,
+// so Yellow -> Green covers Yellow and Orange.
+
+let beltCertRow = null;
+
+function normalizeBelt(belt) {
+  return String(belt || "").trim().toLowerCase().replace(/\s+belts?$/, "").trim();
+}
+
+function certificateBeltsForEntry(row) {
+  const order = (settings.belt_options || []).map(normalizeBelt).filter(Boolean);
+  const oldIndex = order.indexOf(normalizeBelt(row.old_belt));
+  const newIndex = order.indexOf(normalizeBelt(row.new_belt));
+  if (oldIndex < 0 || newIndex <= oldIndex) return [];
+  return order.slice(oldIndex, newIndex).map(formatBeltName);
+}
+
+async function openBeltCertModal(row) {
+  hideBanner("beltsImportBanner");
+  let outstanding;
+  try {
+    outstanding = await api("/api/certificates/outstanding");
+  } catch (error) {
+    showBanner("beltsImportBanner", error.message, "error");
+    return;
+  }
+  const owed = new Set(outstanding
+    .filter((item) => personKey(item.name) === personKey(row.name))
+    .map((item) => item.belt));
+
+  beltCertRow = row;
+  document.getElementById("beltCertModalTitle").textContent = `Print Certificates - ${row.name}`;
+  const container = document.getElementById("beltCertOptions");
+  container.innerHTML = "";
+  certificateBeltsForEntry(row).forEach((belt) => {
+    const checkbox = el("input", { type: "checkbox", value: belt });
+    checkbox.checked = owed.has(belt);
+    const text = owed.has(belt) ? `${belt} Belt` : `${belt} Belt (already printed)`;
+    container.appendChild(el("label", {}, [checkbox, el("span", { text })]));
+  });
+  hideBanner("beltCertError");
+  document.getElementById("beltCertModalOverlay").classList.add("open");
+}
+
+document.getElementById("beltCertCancel").addEventListener("click", () => {
+  document.getElementById("beltCertModalOverlay").classList.remove("open");
+});
+
+document.getElementById("beltCertSubmit").addEventListener("click", async () => {
+  const belts = [...document.querySelectorAll("#beltCertOptions input:checked")].map((cb) => cb.value);
+  if (!belts.length) {
+    showBanner("beltCertError", "Tick at least one certificate to print.", "error");
+    return;
+  }
+  const btn = document.getElementById("beltCertSubmit");
+  btn.disabled = true;
+  try {
+    const result = await api("/api/certificates/generate", {
+      method: "POST",
+      body: JSON.stringify({ name: beltCertRow.name, belts }),
+    });
+    document.getElementById("beltCertModalOverlay").classList.remove("open");
+    showBanner("beltsImportBanner", `Generated ${result.count} certificate(s) for ${beltCertRow.name}. Downloading...`, "success");
+    openDownload(result);
+  } catch (error) {
+    showBanner("beltCertError", error.message, "error");
   } finally {
     btn.disabled = false;
   }
