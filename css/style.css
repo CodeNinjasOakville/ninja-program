@@ -509,3 +509,4 @@ td.dup-cell { background: #fff3d6; }
 .review-similar { display: block; font-weight: 400; }
 .review-list table { width: 100%; }
 .belt-unknown { color: var(--muted); font-style: italic; }
+#activeBeltBanner { align-items: center; gap: 10px; }

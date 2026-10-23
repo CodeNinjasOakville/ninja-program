@@ -26,7 +26,7 @@ Do the Supabase step *before* publishing the new website files, or saves will fa
 **Change the certificate:** replace `assets/certificate_template.pdf`, then `pip install pdfplumber` and `python3 tools/extract_layout.py`; adjust `js/pdf/certificates.js` if positions change.
 **Totem tag look:** `js/pdf/totem_tags.js`.
 **MyStudio schedule import:** `parseClassSchedule` in `js/lib/schedule_import.js` reads the export; the review-then-add routes are in `js/api/active.js` (`/import`, `/import/confirm`). It only ever adds Ninjas whose name is not on the roster.
-**Current belt:** the "new belt" of a Ninja's latest row in the Belts tab (`getCurrentBelts` in `js/lib/rewards.js`). A row with a blank old belt records a starting belt without creating any rewards.
+**Current belt:** the Ninja's belt on the Active Ninjas tab (`active_ninjas.belt`); if that is blank, the "new belt" of their latest row in the Belts tab. Blank Active Ninja belts are filled from the Belts tab, never the other way round; names match ignoring case/spacing or on first + last name, and a name that fits several Ninjas is asked about once (answers kept in the `belt_name_links` setting). All in `js/lib/belt_match.js`. A Belts-tab row with a blank old belt records a starting belt without creating any rewards.
 **How often it syncs:** `intervalMs` in `js/main.js` (default 15 s). **Auto sign-out choices:** `js/core/autolock.js`.
 **Update SQLite:** `python3 tools/fetch_sqljs_from_npm.py <version>` (checks npm's integrity hash).
 **Roles (e.g. read-only members):** not built. It would be done with a `profiles` table + stricter policies in `schema.sql`.

@@ -6,12 +6,20 @@ import {
   formatStartTime, looksLikeClassSchedule, parseActiveNinjasCsv, parseClassSchedule, slotStartMinutes,
 } from "../lib/schedule_import.js";
 import { parseCSV } from "../lib/csv.js";
+import { LINKS_SETTING, activePeople, fillMissingBelts, matchBelts, nameKey, setPersonBelt } from "../lib/belt_match.js";
+
+// A new class for a Ninja who is already on the roster keeps the belt they have.
+function existingBelt(name) {
+  const person = activePeople(conn).get(nameKey(name));
+  return person ? person.belt : "";
+}
 
 function insertActiveNinja(data) {
   const name = pyStr(data.name).trim();
   if (!name) throw new ApiError("Name is required.");
-  conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes) VALUES (?, ?, ?, ?, ?)", [
-    name, pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, pyStr(data.notes).trim(),
+  const belt = pyStr(data.belt).trim() || existingBelt(name);
+  conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes, belt) VALUES (?, ?, ?, ?, ?, ?)", [
+    name, pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, pyStr(data.notes).trim(), belt,
   ]);
 }
 
@@ -45,6 +53,7 @@ route("PUT", "/api/active-ninjas/:id", ({ params, body }) => {
 
   conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, notes = ? WHERE id = ?",
     [name, day, timeSlot, isAi, notes, params.id]);
+  if ("belt" in body) setPersonBelt(conn, name, pyStr(body.belt).trim());
   return { ok: true };
 });
 
@@ -57,11 +66,13 @@ route("GET", "/api/active-ninjas/person", ({ query }) => {
 // Save one Ninja with any number of sessions in a single step.
 //  - sessions with an id are updated, without one are added,
 //  - existing sessions of original_name that are no longer listed are removed,
-//  - renaming changes the name on every session.
+//  - renaming changes the name on every session,
+//  - "belt" (when sent) is put on every session; without it the Ninja keeps the belt they had.
 route("POST", "/api/active-ninjas/person", ({ body }) => {
   const name = pyStr(body.name).trim();
   const original = pyStr(body.original_name).trim();
   const sessions = body.sessions || [];
+  const belt = "belt" in body ? pyStr(body.belt).trim() : existingBelt(original || name);
 
   if (!name) throw new ApiError("Name is required.");
   if (!sessions.length) throw new ApiError("Add at least one session.");
@@ -101,11 +112,11 @@ route("POST", "/api/active-ninjas/person", ({ body }) => {
     }
     for (const c of cleaned) {
       if (c.id !== null) {
-        conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ? WHERE id = ?",
-          [name, c.day, c.time_slot, c.is_ai, c.id]);
+        conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, belt = ? WHERE id = ?",
+          [name, c.day, c.time_slot, c.is_ai, belt, c.id]);
       } else {
-        conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes) VALUES (?, ?, ?, ?, '')",
-          [name, c.day, c.time_slot, c.is_ai]);
+        conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes, belt) VALUES (?, ?, ?, ?, '', ?)",
+          [name, c.day, c.time_slot, c.is_ai, belt]);
       }
     }
   });
@@ -258,6 +269,28 @@ route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
     }
   });
   return result;
+});
+
+// ---- Belts shared with the Belts tab (rules in js/lib/belt_match.js) ----
+
+// Body: {choices: {"<Belts-tab name>": "<Active Ninja name>" or "" for none of them}} (optional).
+// Saves those answers, fills every blank Active Ninja belt it can, and returns
+// {filled: [{name, belt, from}], questions: [{belt_name, belt, candidates: [{name, belt}]}]}.
+route("POST", "/api/active-ninjas/belt-matches", ({ body }) => {
+  const choices = body.choices || {};
+  if (Object.keys(choices).length) {
+    const saved = { ...(getSetting(LINKS_SETTING, {}) || {}) };
+    for (const [beltName, activeName] of Object.entries(choices)) {
+      if (nameKey(beltName)) saved[nameKey(beltName)] = nameKey(activeName);
+    }
+    conn.run(
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      [LINKS_SETTING, JSON.stringify(saved)]
+    );
+  }
+  // Nothing is written (and nothing synced) when every belt is already filled in.
+  const filled = fillMissingBelts(conn);
+  return { filled, questions: matchBelts(conn).questions };
 });
 
 route("DELETE", "/api/active-ninjas/:id", ({ params }) => {

@@ -753,7 +753,8 @@
     "is_ai": 1,
     "name": "Mia",
     "notes": "",
-    "time_slot": "6 PM"
+    "time_slot": "6 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -762,7 +763,8 @@
     "is_ai": 1,
     "name": "Woojae",
     "notes": "",
-    "time_slot": "4 PM - 5 PM"
+    "time_slot": "4 PM - 5 PM",
+    "belt": ""
    }
   ]
  },
@@ -776,7 +778,8 @@
     "is_ai": 1,
     "name": "Mia",
     "notes": "",
-    "time_slot": "6 PM"
+    "time_slot": "6 PM",
+    "belt": ""
    }
   ]
  },
@@ -790,7 +793,8 @@
     "is_ai": 1,
     "name": "Woojae",
     "notes": "",
-    "time_slot": "4 PM - 5 PM"
+    "time_slot": "4 PM - 5 PM",
+    "belt": ""
    }
   ]
  },
@@ -877,7 +881,8 @@
     "is_ai": 0,
     "name": "Woojae K",
     "notes": "",
-    "time_slot": "3 PM"
+    "time_slot": "3 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -886,7 +891,8 @@
     "is_ai": 1,
     "name": "Hal",
     "notes": "",
-    "time_slot": "4 PM"
+    "time_slot": "4 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -895,7 +901,8 @@
     "is_ai": 0,
     "name": "Ana",
     "notes": "",
-    "time_slot": "4:00 PM - 5:00 PM"
+    "time_slot": "4:00 PM - 5:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -904,7 +911,8 @@
     "is_ai": 1,
     "name": "Ben",
     "notes": "",
-    "time_slot": "4:00 PM - 5:00 PM"
+    "time_slot": "4:00 PM - 5:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -913,7 +921,8 @@
     "is_ai": 0,
     "name": "Eve",
     "notes": "",
-    "time_slot": "5:00 PM - 6:00 PM"
+    "time_slot": "5:00 PM - 6:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -922,7 +931,8 @@
     "is_ai": 0,
     "name": "stray name",
     "notes": "",
-    "time_slot": "5:00 PM - 6:00 PM"
+    "time_slot": "5:00 PM - 6:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -931,7 +941,8 @@
     "is_ai": 1,
     "name": "Mia",
     "notes": "",
-    "time_slot": "6 PM"
+    "time_slot": "6 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -940,7 +951,8 @@
     "is_ai": 1,
     "name": "Brand New",
     "notes": "",
-    "time_slot": "1 PM"
+    "time_slot": "1 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -949,7 +961,8 @@
     "is_ai": 1,
     "name": "Woojae K",
     "notes": "",
-    "time_slot": "4 PM - 5 PM"
+    "time_slot": "4 PM - 5 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -958,7 +971,8 @@
     "is_ai": 1,
     "name": "Ann",
     "notes": "",
-    "time_slot": "4 PM"
+    "time_slot": "4 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -967,7 +981,8 @@
     "is_ai": 0,
     "name": "Cy",
     "notes": "",
-    "time_slot": "4:00 PM - 5:00 PM"
+    "time_slot": "4:00 PM - 5:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -976,7 +991,8 @@
     "is_ai": 0,
     "name": "Di",
     "notes": "",
-    "time_slot": "4:00 PM - 5:00 PM"
+    "time_slot": "4:00 PM - 5:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -985,7 +1001,8 @@
     "is_ai": 0,
     "name": "Bob",
     "notes": "",
-    "time_slot": "5 PM"
+    "time_slot": "5 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -994,7 +1011,8 @@
     "is_ai": 1,
     "name": "Ivy",
     "notes": "",
-    "time_slot": "5 PM"
+    "time_slot": "5 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -1003,7 +1021,8 @@
     "is_ai": 0,
     "name": "Cy",
     "notes": "",
-    "time_slot": "6 PM"
+    "time_slot": "6 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -1012,7 +1031,8 @@
     "is_ai": 1,
     "name": "Flo",
     "notes": "",
-    "time_slot": "5:00 PM - 6:00 PM"
+    "time_slot": "5:00 PM - 6:00 PM",
+    "belt": ""
    },
    {
     "created_at": "2026-10-09 20:13:09",
@@ -1021,7 +1041,8 @@
     "is_ai": 0,
     "name": "Gus",
     "notes": "",
-    "time_slot": "5:00 PM - 6:00 PM"
+    "time_slot": "5:00 PM - 6:00 PM",
+    "belt": ""
    }
   ]
  },

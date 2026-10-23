@@ -30,9 +30,13 @@ create table if not exists public.receipts (
 create table if not exists public.active_ninjas (
   id bigint generated always as identity primary key,
   name text not null, day text, time_slot text, is_ai integer not null default 0, notes text,
+  belt text default '',
   created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
   updated_at timestamptz not null default now(), deleted boolean not null default false
 );
+-- Added later (Active Ninjas belt). Safe to run again on an existing database.
+alter table public.active_ninjas add column if not exists belt text default '';
+
 create table if not exists public.settings (
   key text primary key, value text not null,
   updated_at timestamptz not null default now()

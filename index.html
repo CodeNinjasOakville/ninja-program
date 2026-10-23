@@ -125,6 +125,10 @@
         Artificial Intelligence class; the Ninja stays in the list, just flagged.
       </p>
       <div class="banner" id="activeImportBanner"></div>
+      <div class="banner warning" id="activeBeltBanner" style="display:none;">
+        <span id="activeBeltBannerText"></span>
+        <button class="btn-secondary" id="activeBeltReviewBtn" type="button">Choose</button>
+      </div>
       <div class="view-toggle">
         <button class="toggle-btn active" id="viewScheduleBtn">Schedule</button>
         <button class="toggle-btn" id="viewListBtn">List</button>
@@ -330,6 +334,11 @@
         <label for="af_name">Name</label>
         <input type="text" id="af_name">
       </div>
+      <div class="field full">
+        <label for="af_belt">Belt</label>
+        <div class="hint">Left blank, it is filled in from the Belts tab. A belt chosen here is never changed by the Belts tab.</div>
+        <select id="af_belt"></select>
+      </div>
       <div class="sessions-head">
         <label>Sessions</label>
         <span class="muted">One row per hour/block. Add a row for each day they come, or for a regular hour and an AI hour.</span>
@@ -390,12 +399,28 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: Which Active Ninja a Belts-tab name belongs to ============ -->
+  <div class="modal-overlay" id="beltMatchModalOverlay">
+    <div class="modal wide">
+      <h2>Which Ninja is this?</h2>
+      <p class="muted">These names in the Belts tab match more than one Ninja on the Active Ninjas tab.
+        Pick who each belt belongs to. A Ninja who already has a belt keeps it.</p>
+      <div class="banner error" id="beltMatchError"></div>
+      <div id="beltMatchList"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="beltMatchCancel">Later</button>
+        <button class="btn-primary" id="beltMatchSubmit">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ MODAL: Which belt each totem tag goes on ============ -->
   <div class="modal-overlay" id="tagBeltsModalOverlay">
     <div class="modal">
       <h2>Belts for these totem tags</h2>
       <p class="muted">Same order as the printed sheet: left to right, then down.
-        Belts come from each Ninja's latest entry in the Belts tab.</p>
+        Belts come from the Active Ninjas tab, or from the Ninja's latest Belts-tab entry if
+        they have none there.</p>
       <p class="muted" id="tagBeltsSummary"></p>
       <div class="review-list">
         <table id="tagBeltsTable">

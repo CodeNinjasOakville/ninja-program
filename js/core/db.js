@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS receipts (
 
 -- Currently-enrolled Ninjas and which weekly session they attend.
 -- is_ai marks a session that is an Artificial Intelligence class.
+-- belt is the Ninja's belt, the same on every one of their rows (see js/lib/belt_match.js).
 CREATE TABLE IF NOT EXISTS active_ninjas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS active_ninjas (
     time_slot TEXT,
     is_ai INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
+    belt TEXT DEFAULT '',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -88,7 +90,14 @@ export const REWARDS_PER_LEVEL = { ninja_bucks: 5, prints: 1, certificates: 1, b
 // Future schema upgrades go here, in order. Each runs once; the position in the
 // list is stored in SQLite's built-in user_version. Example:
 //   (conn) => conn.run("ALTER TABLE leads ADD COLUMN source TEXT"),
-export const MIGRATIONS = [];
+export const MIGRATIONS = [
+  // 1: Active Ninjas get their own belt. (Fresh databases already have it from SCHEMA.)
+  (conn) => {
+    if (!conn.all("PRAGMA table_info(active_ninjas)").some((c) => c.name === "belt")) {
+      conn.run("ALTER TABLE active_ninjas ADD COLUMN belt TEXT DEFAULT ''");
+    }
+  },
+];
 
 const SQLITE_MAGIC = "SQLite format 3\u0000";
 

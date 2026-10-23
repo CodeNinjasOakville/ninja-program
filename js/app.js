@@ -413,7 +413,76 @@ function renderActiveSchedule(rows, allRows) {
   });
 }
 
-async function loadActiveNinjas() {
+// ---- Belts shared with the Belts tab (rules in js/lib/belt_match.js) ----
+
+let beltQuestions = [];         // Belts-tab names that match more than one Active Ninja
+let beltQuestionsShown = false; // the chooser opens by itself once; after "Later" only the banner shows
+
+// Fills blank Active Ninja belts from the Belts tab and asks about names that could be several Ninjas.
+async function syncActiveBelts(choices) {
+  let result;
+  try {
+    result = await api("/api/active-ninjas/belt-matches", { method: "POST", body: JSON.stringify({ choices: choices || {} }) });
+  } catch (error) {
+    return; // the roster still shows; belts fill in next time
+  }
+  beltQuestions = result.questions;
+  document.getElementById("activeBeltBanner").style.display = beltQuestions.length ? "flex" : "none";
+  document.getElementById("activeBeltBannerText").textContent =
+    `${beltQuestions.length} name${beltQuestions.length === 1 ? "" : "s"} in the Belts tab match more than one Ninja here. ` +
+    "Choose who each belt belongs to.";
+  if (result.filled.length) {
+    showBanner(
+      "activeImportBanner",
+      "Belts filled in from the Belts tab: " + result.filled.map((f) => `${f.name} (${f.belt})`).join(", "),
+      "success"
+    );
+  }
+  if (beltQuestions.length && !beltQuestionsShown) openBeltMatchModal();
+}
+
+function openBeltMatchModal() {
+  beltQuestionsShown = true;
+  hideBanner("beltMatchError");
+  const list = document.getElementById("beltMatchList");
+  list.innerHTML = "";
+  beltQuestions.forEach((q, i) => {
+    list.appendChild(el("div", { class: "review-head", text: `"${q.belt_name}" - ${q.belt} belt in the Belts tab` }));
+    const options = el("div", { class: "review-list" });
+    const choice = (value, text) =>
+      el("label", { class: "review-row" }, [el("input", { type: "radio", name: "beltMatch" + i, value }), el("span", { text })]);
+    q.candidates.forEach((c) => {
+      options.appendChild(choice(c.name, c.belt ? `${c.name} (already ${c.belt} - keeps it)` : `${c.name} (no belt yet)`));
+    });
+    options.appendChild(choice("", "None of these"));
+    list.appendChild(options);
+  });
+  document.getElementById("beltMatchModalOverlay").classList.add("open");
+}
+
+document.getElementById("activeBeltReviewBtn").addEventListener("click", openBeltMatchModal);
+
+document.getElementById("beltMatchCancel").addEventListener("click", () => {
+  document.getElementById("beltMatchModalOverlay").classList.remove("open");
+});
+
+document.getElementById("beltMatchSubmit").addEventListener("click", async () => {
+  const choices = {};
+  beltQuestions.forEach((q, i) => {
+    const picked = document.querySelector(`#beltMatchList input[name="beltMatch${i}"]:checked`);
+    if (picked) choices[q.belt_name] = picked.value;
+  });
+  if (!Object.keys(choices).length) {
+    showBanner("beltMatchError", 'Pick a Ninja (or "None of these") for at least one name.', "error");
+    return;
+  }
+  document.getElementById("beltMatchModalOverlay").classList.remove("open");
+  await syncActiveBelts(choices);
+  loadActiveNinjas({ skipBeltSync: true });
+});
+
+async function loadActiveNinjas(options) {
+  if (!(options && options.skipBeltSync)) await syncActiveBelts();
   const search = document.getElementById("activeSearch").value;
   const rows = await api("/api/active-ninjas?q=" + encodeURIComponent(search));
   const allRows = search.trim() ? await api("/api/active-ninjas") : rows;
@@ -435,10 +504,6 @@ async function loadActiveNinjas() {
   renderActiveSchedule(rows, allRows);
   setActiveView(activeView);
 
-  const beltByName = {};
-  (await api("/api/belts/current", { method: "POST", body: JSON.stringify({ names: people.map((p) => p.name) }) }))
-    .forEach((b) => { beltByName[personKey(b.name)] = b.belt; });
-
   const visibleIds = new Set(allRows.map((r) => r.id));
   activeSelected = new Set([...activeSelected].filter((id) => visibleIds.has(id)));
 
@@ -455,7 +520,7 @@ async function loadActiveNinjas() {
     tr.appendChild(el("td", {}, [checkbox]));
 
     tr.appendChild(el("td", { class: "person-name", text: person.name }));
-    const belt = beltByName[personKey(person.name)];
+    const belt = (person.sessions.find((r) => r.belt) || {}).belt;
     tr.appendChild(belt ? el("td", { text: belt }) : el("td", { class: "belt-unknown", text: "\u2014" }));
     tr.appendChild(el("td", { class: "class-count", text: String(person.sessions.length) }));
 
@@ -508,7 +573,7 @@ function updateActiveSelectionUI() {
     count > 0 ? "inline-block" : "none";
 }
 
-document.getElementById("activeSearch").addEventListener("input", () => loadActiveNinjas());
+document.getElementById("activeSearch").addEventListener("input", () => loadActiveNinjas({ skipBeltSync: true }));
 
 document.getElementById("activeSelectAll").addEventListener("change", (e) => {
   if (e.target.checked) {
@@ -746,6 +811,17 @@ function refreshTimeSlotSuggestions() {
   slots.forEach((slot) => list.appendChild(el("option", { value: slot })));
 }
 
+// Belt dropdown: the Settings belt colours, plus the Ninja's current belt if it isn't one of them.
+function fillBeltSelect(current) {
+  const select = document.getElementById("af_belt");
+  select.innerHTML = "";
+  const belts = (settings.belt_options || []).map((b) => formatBeltName(String(b).trim())).filter(Boolean);
+  if (current && !belts.some((b) => b.toLowerCase() === current.toLowerCase())) belts.push(current);
+  select.appendChild(el("option", { value: "", text: "Not set (use the Belts tab)" }));
+  belts.forEach((b) => select.appendChild(el("option", { value: b, text: b })));
+  select.value = belts.find((b) => b.toLowerCase() === current.toLowerCase()) || "";
+}
+
 async function openActiveModal(row) {
   hideBanner("activeFormError");
   refreshTimeSlotSuggestions();
@@ -763,6 +839,7 @@ async function openActiveModal(row) {
       all = [row];
     }
     if (all.length === 0) all = [row];
+    fillBeltSelect((all.find((r) => r.belt) || {}).belt || "");
 
     sessionRows = all
       .map((r) => ({ id: r.id, day: r.day || "", time_slot: r.time_slot || "", is_ai: !!r.is_ai }))
@@ -772,6 +849,7 @@ async function openActiveModal(row) {
     editingOriginalName = null;
     document.getElementById("activeModalTitle").textContent = "Add Ninja";
     document.getElementById("af_name").value = "";
+    fillBeltSelect("");
     sessionRows = [{ day: "", time_slot: "", is_ai: false }];
   }
 
@@ -799,6 +877,7 @@ document.getElementById("activeModalSubmit").addEventListener("click", async () 
   const payload = {
     original_name: editingOriginalName,
     name: document.getElementById("af_name").value,
+    belt: document.getElementById("af_belt").value,
     sessions: sessionRows
       .filter((s) => s.id || s.day || (s.time_slot || "").trim() || s.is_ai)
       .map((s) => ({ id: s.id, day: s.day, time_slot: s.time_slot, is_ai: s.is_ai })),
