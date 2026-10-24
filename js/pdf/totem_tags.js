@@ -11,8 +11,16 @@ const CELL_WIDTH = 1.9685 * INCH;
 const CELL_HEIGHT = 0.787402 * INCH;
 const PAGE = [612, 792]; // letter, portrait
 
+// Tags never show a full last name: "Jo Anne Rivera" -> "Jo Anne R.".
+export function tagName(name) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return words.join("");
+  const last = words.pop();
+  return `${words.join(" ")} ${last[0].toUpperCase()}.`;
+}
+
 export async function generateTotemTagsPdf(names) {
-  const cleaned = (names || []).map((n) => String(n).trim()).filter(Boolean);
+  const cleaned = (names || []).map(tagName).filter(Boolean);
   if (!cleaned.length) throw new Error("No names to print.");
 
   const { PDFDocument, StandardFonts, rgb } = globalThis.PDFLib;
