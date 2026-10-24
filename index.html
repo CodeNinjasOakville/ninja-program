@@ -105,7 +105,7 @@
     <!-- ============ ACTIVE NINJAS ============ -->
     <section id="tab-active" class="tab-panel">
       <div class="panel-header">
-        <input type="text" id="activeSearch" placeholder="Search name, day, time, or &quot;AI&quot;&hellip;">
+        <input type="text" id="activeSearch" placeholder="Search name, day, time, &quot;AI&quot; or &quot;JR&quot;&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="activeSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedActiveBtn" style="display:none;">Delete Selected</button>
@@ -123,6 +123,8 @@
         it's auto-detected. The MyStudio export only adds Ninjas who aren't here yet, and
         shows you the list first. A session marked <span class="ai-badge">AI</span> is an
         Artificial Intelligence class; the Ninja stays in the list, just flagged.
+        A <span class="jr-badge">JR</span> session is a JR (ScratchJr) class - the
+        <b>JR Ninjas</b> view lists them with notes on what each one is working on.
       </p>
       <div class="banner" id="activeImportBanner"></div>
       <div class="banner warning" id="activeBeltBanner" style="display:none;">
@@ -132,6 +134,7 @@
       <div class="view-toggle">
         <button class="toggle-btn active" id="viewScheduleBtn">Schedule</button>
         <button class="toggle-btn" id="viewListBtn">List</button>
+        <button class="toggle-btn" id="viewJrBtn">JR Ninjas</button>
         <span class="muted" id="activeCountLabel"></span>
       </div>
       <div id="activeSchedule" class="schedule"></div>
@@ -146,6 +149,7 @@
           <tbody></tbody>
         </table>
       </div>
+      <div id="activeJr" class="jr-view" style="display:none;"></div>
       <div class="empty-state" id="activeEmpty">No active Ninjas yet.</div>
     </section>
 
@@ -344,7 +348,7 @@
         <span class="muted">One row per hour/block. Add a row for each day they come, or for a regular hour and an AI hour.</span>
       </div>
       <div class="session-labels">
-        <span>Day</span><span>Time Slot</span><span>AI?</span><span></span>
+        <span>Day</span><span>Time Slot</span><span>AI?</span><span>JR?</span><span></span>
       </div>
       <div id="af_sessions"></div>
       <datalist id="timeSlotOptions"></datalist>
@@ -360,7 +364,7 @@
   <div class="modal-overlay" id="bulkActiveModalOverlay">
     <div class="modal wide">
       <h2>Bulk Add Active Ninjas</h2>
-      <p class="muted">One per line: Name, Day, Time Slot, AI (yes/no) - tab or "|" separated. Day and AI are optional.</p>
+      <p class="muted">One per line: Name, Day, Time Slot, AI (yes/no), JR (yes/no) - tab or "|" separated. Day, AI and JR are optional.</p>
       <textarea id="bulkActiveText" placeholder="Paste rows here, one entry per line&hellip;"></textarea>
       <div class="banner" id="bulkActiveBanner"></div>
       <div class="modal-actions">
@@ -388,6 +392,14 @@
           Tick one only if it really is a different Ninja.</p>
         <div class="review-list" id="rosterSimilarList"></div>
       </div>
+      <div id="rosterJrSection">
+        <div class="review-head">
+          <label><input type="checkbox" id="rosterJrAll" checked> <span id="rosterJrTitle"></span></label>
+        </div>
+        <p class="muted">Already on the roster, in a JR class in this file. Only the JR mark is added to
+          that class - nothing else about them changes.</p>
+        <div class="review-list" id="rosterJrList"></div>
+      </div>
       <details id="rosterExistingSection">
         <summary class="muted" id="rosterExistingTitle"></summary>
         <p class="muted" id="rosterExistingList"></p>
@@ -395,6 +407,16 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="rosterCancel">Cancel</button>
         <button class="btn-primary" id="rosterSubmit">Add Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: One JR Ninja's notes (opened from the schedule) ============ -->
+  <div class="modal-overlay" id="jrModalOverlay">
+    <div class="modal wide">
+      <div id="jrModalBody"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="jrModalClose">Close</button>
       </div>
     </div>
   </div>

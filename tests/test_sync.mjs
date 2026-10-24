@@ -104,6 +104,14 @@ await sync(A); await sync(B);
 check("the screen is told when a teammate changed something", notified >= 1, notified);
 check("active ninja appears for the other person", (as(B), conn.all("SELECT * FROM active_ninjas WHERE name='Zed'").length === 1));
 
+// ---- JR notes are shared
+await api(A, "PUT", `/api/active-ninjas/${(as(A), conn.get("SELECT id FROM active_ninjas WHERE name='Zed'").id)}`, { is_jr: true });
+await api(A, "POST", "/api/jr-notes", { name: "Zed", note: "Working on the animal story", author: "Sensei A" });
+await sync(A); await sync(B);
+check("JR mark and note reach the other person", (as(B),
+  conn.get("SELECT is_jr FROM active_ninjas WHERE name='Zed'").is_jr === 1 &&
+  conn.all("SELECT * FROM jr_notes WHERE name='Zed' AND note='Working on the animal story'").length === 1));
+
 // ---- idle: nothing to send
 const before = mock.stats.restCalls;
 await sync(A);

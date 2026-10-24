@@ -183,6 +183,19 @@ tbody tr:hover { background: #fafbff; }
   vertical-align: middle;
 }
 
+.jr-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #dcf5e6;
+  color: #17643c;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
 tr.ai-row { background: #fffaf0; }
 tr.ai-row:hover { background: #fef3dd; }
 
@@ -356,6 +369,7 @@ td.dup-cell { background: #fff3d6; }
   padding: 6px 14px;
 }
 .toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.toggle-btn { white-space: nowrap; }
 .view-toggle .muted { margin-left: 10px; }
 
 .schedule {
@@ -414,6 +428,7 @@ td.dup-cell { background: #fff3d6; }
   font-size: 13px;
 }
 .ninja-chip.ai { background: #fff3d6; }
+.ninja-chip.jr { background: #e8f8ee; }
 .chip-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .chip-actions { display: flex; opacity: 0; transition: opacity 0.1s; }
 .ninja-chip:hover .chip-actions, .ninja-chip:focus-within .chip-actions { opacity: 1; }
@@ -438,7 +453,7 @@ td.dup-cell { background: #fff3d6; }
 
 .session-labels, .session-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.4fr 50px 32px;
+  grid-template-columns: 1.2fr 1.4fr 44px 44px 32px;
   gap: 8px;
   align-items: center;
 }
@@ -470,6 +485,58 @@ td.dup-cell { background: #fff3d6; }
   white-space: nowrap;
 }
 .session-pill.ai { background: #fff3d6; }
+.session-pill.jr { background: #e8f8ee; }
+
+/* ---------- JR Ninjas view + notes ---------- */
+
+.jr-view {
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.jr-summary { grid-column: 1 / -1; }
+.jr-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-top: 3px solid #2f9e62;
+  border-radius: 8px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.jr-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.jr-card-head .person-name { font-size: 14px; overflow-wrap: anywhere; }
+.jr-belt { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.jr-add { margin: 10px 0 8px; }
+.jr-card textarea.jr-draft, .modal .jr-card textarea.jr-draft {
+  width: 100%;
+  height: auto;
+  min-height: 52px;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+.jr-add-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.jr-author { flex: 1; min-width: 0; max-width: 180px; margin-right: auto; }
+.jr-add .banner, .jr-edit .banner { margin-top: 6px; }
+.jr-notes { border-top: 1px solid #f0f1f5; }
+.jr-note { padding: 8px 0; border-bottom: 1px solid #f0f1f5; }
+.jr-note.latest .jr-note-text { font-weight: 600; }
+.jr-note-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.jr-note-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.jr-note-tools { display: flex; opacity: 0; transition: opacity 0.1s; }
+.jr-note:hover .jr-note-tools, .jr-note:focus-within .jr-note-tools { opacity: 1; }
+@media (hover: none) { .jr-note-tools { opacity: 1; } }
+.jr-note-tools .btn-icon { padding: 2px 4px; font-size: 12px; }
+.jr-notes > .muted { padding: 8px 0; }
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 6px 0 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; background: none; }
 .class-count { text-align: center; color: var(--muted); }
 .person-name { font-weight: 600; }
 

@@ -7,6 +7,7 @@ import {
 } from "../lib/schedule_import.js";
 import { parseCSV } from "../lib/csv.js";
 import { LINKS_SETTING, activePeople, fillMissingBelts, matchBelts, nameKey, setPersonBelt } from "../lib/belt_match.js";
+import { renameJrNotes } from "./jr.js";
 
 // A new class for a Ninja who is already on the roster keeps the belt they have.
 function existingBelt(name) {
@@ -18,18 +19,19 @@ function insertActiveNinja(data) {
   const name = pyStr(data.name).trim();
   if (!name) throw new ApiError("Name is required.");
   const belt = pyStr(data.belt).trim() || existingBelt(name);
-  conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes, belt) VALUES (?, ?, ?, ?, ?, ?)", [
-    name, pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, pyStr(data.notes).trim(), belt,
+  conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, is_jr, notes, belt) VALUES (?, ?, ?, ?, ?, ?, ?)", [
+    name, pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, data.is_jr ? 1 : 0,
+    pyStr(data.notes).trim(), belt,
   ]);
 }
 
 route("GET", "/api/active-ninjas", ({ query }) => {
   const search = (query.q || "").trim();
   if (search) {
-    // "ai" also finds every Artificial Intelligence session.
+    // "ai" also finds every Artificial Intelligence session, "jr" every JR session.
     const { where, params } = searchClause(["name", "day", "time_slot", "notes"], search);
-    const aiOnly = search.toLowerCase() === "ai" ? " OR is_ai = 1" : "";
-    return conn.all(`SELECT * FROM active_ninjas WHERE ${where}${aiOnly} ORDER BY day, time_slot, name`, params);
+    const flag = { ai: " OR is_ai = 1", jr: " OR is_jr = 1" }[search.toLowerCase()] || "";
+    return conn.all(`SELECT * FROM active_ninjas WHERE ${where}${flag} ORDER BY day, time_slot, name`, params);
   }
   return conn.all("SELECT * FROM active_ninjas ORDER BY day, time_slot, name");
 });
@@ -50,9 +52,10 @@ route("PUT", "/api/active-ninjas/:id", ({ params, body }) => {
   const timeSlot = pyStr("time_slot" in body ? body.time_slot : existing.time_slot).trim();
   const notes = pyStr("notes" in body ? body.notes : existing.notes).trim();
   const isAi = ("is_ai" in body ? body.is_ai : !!existing.is_ai) ? 1 : 0;
+  const isJr = ("is_jr" in body ? body.is_jr : !!existing.is_jr) ? 1 : 0;
 
-  conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, notes = ? WHERE id = ?",
-    [name, day, timeSlot, isAi, notes, params.id]);
+  conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, is_jr = ?, notes = ? WHERE id = ?",
+    [name, day, timeSlot, isAi, isJr, notes, params.id]);
   if ("belt" in body) setPersonBelt(conn, name, pyStr(body.belt).trim());
   return { ok: true };
 });
@@ -83,16 +86,17 @@ route("POST", "/api/active-ninjas/person", ({ body }) => {
     const day = pyStr(sess.day).trim();
     const timeSlot = pyStr(sess.time_slot).trim();
     const isAi = sess.is_ai ? 1 : 0;
-    const key = `${day.toLowerCase()}|${timeSlot.toLowerCase()}|${isAi}`;
+    const isJr = sess.is_jr ? 1 : 0;
+    const key = `${day.toLowerCase()}|${timeSlot.toLowerCase()}|${isAi}|${isJr}`;
     if (seen.has(key)) {
       throw new ApiError(
-        `Session ${i + 1} is an exact repeat of another session (${day || "no day"}, ${timeSlot || "no time"}${isAi ? ", AI" : ""}).`
+        `Session ${i + 1} is an exact repeat of another session (${day || "no day"}, ${timeSlot || "no time"}${isAi ? ", AI" : ""}${isJr ? ", JR" : ""}).`
       );
     }
     seen.add(key);
     cleaned.push({
       id: /^\d+$/.test(pyStr(sess.id)) ? parseInt(sess.id, 10) : null,
-      day, time_slot: timeSlot, is_ai: isAi,
+      day, time_slot: timeSlot, is_ai: isAi, is_jr: isJr,
     });
   });
 
@@ -112,18 +116,20 @@ route("POST", "/api/active-ninjas/person", ({ body }) => {
     }
     for (const c of cleaned) {
       if (c.id !== null) {
-        conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, belt = ? WHERE id = ?",
-          [name, c.day, c.time_slot, c.is_ai, belt, c.id]);
+        conn.run("UPDATE active_ninjas SET name = ?, day = ?, time_slot = ?, is_ai = ?, is_jr = ?, belt = ? WHERE id = ?",
+          [name, c.day, c.time_slot, c.is_ai, c.is_jr, belt, c.id]);
       } else {
-        conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, notes, belt) VALUES (?, ?, ?, ?, '', ?)",
-          [name, c.day, c.time_slot, c.is_ai, belt]);
+        conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, is_jr, notes, belt) VALUES (?, ?, ?, ?, ?, '', ?)",
+          [name, c.day, c.time_slot, c.is_ai, c.is_jr, belt]);
       }
     }
+    // A renamed Ninja keeps their JR notes.
+    if (original && nameKey(original) !== nameKey(name)) renameJrNotes(original, name);
   });
   return { ok: true, sessionCount: cleaned.length };
 });
 
-// Paste-many-rows: Name | Day | Time Slot | AI (yes/no), tab or "|" separated.
+// Paste-many-rows: Name | Day | Time Slot | AI (yes/no) | JR (yes/no), tab or "|" separated.
 route("POST", "/api/active-ninjas/bulk", ({ body }) => {
   const lines = nonBlankLines(body.text);
   if (!lines.length) throw new ApiError("No entries were provided.");
@@ -134,6 +140,7 @@ route("POST", "/api/active-ninjas/bulk", ({ body }) => {
       day: p[1] || "",
       time_slot: p[2] || "",
       is_ai: p.length > 3 ? ["yes", "true", "1", "ai"].includes(p[3].toLowerCase()) : false,
+      is_jr: p.length > 4 ? ["yes", "true", "1", "jr"].includes(p[4].toLowerCase()) : false,
     };
   });
   return insertAll(entries, insertActiveNinja, (i) => `Line ${i + 1}`);
@@ -176,7 +183,7 @@ function slotLabeller(existingRows) {
 }
 
 function previewClassSchedule(entries) {
-  const existingRows = conn.all("SELECT name, day, time_slot FROM active_ninjas");
+  const existingRows = conn.all("SELECT name, day, time_slot, is_jr FROM active_ninjas");
   const existingNames = new Map(); // key -> name as it is written on the roster
   for (const row of existingRows) {
     if (!existingNames.has(personKey(row.name))) existingNames.set(personKey(row.name), pyStr(row.name).trim());
@@ -194,9 +201,18 @@ function previewClassSchedule(entries) {
 
   const fresh = [];
   const alreadyThere = [];
+  const jrMarks = []; // classes on the roster that the file says are JR but aren't marked yet
   for (const [key, person] of people) {
     if (existingNames.has(key)) {
       alreadyThere.push(existingNames.get(key));
+      for (const s of person.sessions.filter((x) => x.is_jr)) {
+        for (const row of existingRows) {
+          if (personKey(row.name) !== key || row.is_jr) continue;
+          if (pyStr(row.day).trim().toLowerCase() !== s.day.toLowerCase()) continue;
+          if (slotStartMinutes(row.time_slot) !== s.start) continue;
+          jrMarks.push({ name: pyStr(row.name).trim(), day: pyStr(row.day).trim(), time_slot: pyStr(row.time_slot).trim() });
+        }
+      }
       continue;
     }
     const similar = [...existingNames.keys()].find((existing) => looksLikeSamePerson(key, existing));
@@ -205,7 +221,9 @@ function previewClassSchedule(entries) {
       similar_to: similar ? existingNames.get(similar) : "",
       sessions: person.sessions
         .sort((a, b) => dayIndex(a.day) - dayIndex(b.day) || a.start - b.start)
-        .map((s) => ({ day: s.day, time_slot: label(s.day, s.start), is_ai: s.is_ai, notes: s.classes.join(" + ") })),
+        .map((s) => ({
+          day: s.day, time_slot: label(s.day, s.start), is_ai: s.is_ai, is_jr: s.is_jr, notes: s.classes.join(" + "),
+        })),
     });
   }
 
@@ -214,6 +232,7 @@ function previewClassSchedule(entries) {
     preview: true,
     people: fresh.sort((a, b) => byName(a.name, b.name)),
     alreadyThere: alreadyThere.sort(byName),
+    jrMarks: jrMarks.sort((a, b) => byName(a.name, b.name)),
   };
 }
 
@@ -244,16 +263,25 @@ route("POST", "/api/active-ninjas/import", async ({ file }) => {
   return insertAll(parsed, insertActiveNinja, (i) => `Entry ${i + 1}`);
 });
 
-// Body: {people: [{name, sessions: [{day, time_slot, is_ai, notes}]}]} - the Ninjas ticked in the
-// review window. Anyone whose name is on the roster by now is skipped, never changed or doubled up.
+// Body: {people: [{name, sessions: [{day, time_slot, is_ai, is_jr, notes}]}], jrMarks: [{name, day, time_slot}]}
+// - the Ninjas ticked in the review window, plus classes already on the roster to mark as JR.
+// Anyone whose name is on the roster by now is skipped, never changed or doubled up; the only change
+// ever made to an existing class is turning its JR mark on.
 route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
   const people = body.people || [];
-  if (!people.length) throw new ApiError("No Ninjas were selected.");
+  const jrMarks = body.jrMarks || [];
+  if (!people.length && !jrMarks.length) throw new ApiError("No Ninjas were selected.");
 
   const onRoster = new Set(conn.all("SELECT name FROM active_ninjas").map((r) => personKey(r.name)));
-  const result = { addedNinjas: 0, addedSessions: 0, skipped: [] };
+  const result = { addedNinjas: 0, addedSessions: 0, skipped: [], markedJr: 0 };
 
   conn.transaction(() => {
+    for (const mark of jrMarks) {
+      const where = "is_jr = 0 AND lower(trim(name)) = ? AND trim(day) = ? AND trim(time_slot) = ?";
+      const args = [personKey(mark.name), pyStr(mark.day).trim(), pyStr(mark.time_slot).trim()];
+      result.markedJr += conn.get(`SELECT COUNT(*) AS c FROM active_ninjas WHERE ${where}`, args).c;
+      conn.run(`UPDATE active_ninjas SET is_jr = 1 WHERE ${where}`, args);
+    }
     for (const person of people) {
       const name = pyStr(person.name).trim();
       const sessions = person.sessions || [];

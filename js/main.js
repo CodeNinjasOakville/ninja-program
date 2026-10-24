@@ -77,6 +77,7 @@ async function main() {
 async function begin(client, sync, store) {
   onDataChanged(() => sync.request());
   window.ninjaApi = (method, path, body, file) => handleRequest(method, path, body, file);
+  window.ninjaUserEmail = client.email || ""; // default author name on JR notes
 
   let leaving = false;
   async function signOut() {
@@ -121,11 +122,14 @@ async function begin(client, sync, store) {
   });
   hideLogin();
 
-  // A teammate changed something: refresh the screens, but never while you're typing or in a dialog.
+  // A teammate changed something: refresh the screens, but never while you're typing, in a dialog,
+  // or have a JR note written but not saved yet.
   let waiting = false;
   function busy() {
     const a = document.activeElement;
-    return !!document.querySelector(".modal-overlay.open") || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("#app"));
+    const unsentNote = [...document.querySelectorAll("[data-draft]")].some((t) => t.value.trim());
+    return unsentNote || !!document.querySelector(".modal-overlay.open") ||
+      (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.closest("#app"));
   }
   function refreshWhenIdle() {
     if (busy()) { waiting = true; return; }

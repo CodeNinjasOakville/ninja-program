@@ -36,6 +36,14 @@ create table if not exists public.active_ninjas (
 );
 -- Added later (Active Ninjas belt). Safe to run again on an existing database.
 alter table public.active_ninjas add column if not exists belt text default '';
+-- Added later (JR classes + notes on what each JR Ninja is working on). Safe to run again.
+alter table public.active_ninjas add column if not exists is_jr integer not null default 0;
+create table if not exists public.jr_notes (
+  id bigint generated always as identity primary key,
+  name text not null, note text not null, author text,
+  created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at timestamptz not null default now(), deleted boolean not null default false
+);
 
 create table if not exists public.settings (
   key text primary key, value text not null,
@@ -46,6 +54,7 @@ create index if not exists leads_updated on public.leads (updated_at);
 create index if not exists belt_entries_updated on public.belt_entries (updated_at);
 create index if not exists receipts_updated on public.receipts (updated_at);
 create index if not exists active_ninjas_updated on public.active_ninjas (updated_at);
+create index if not exists jr_notes_updated on public.jr_notes (updated_at);
 create index if not exists settings_updated on public.settings (updated_at);
 
 create or replace function public.touch_updated_at() returns trigger language plpgsql as $$
@@ -54,7 +63,7 @@ begin new.updated_at = now(); return new; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['leads','belt_entries','receipts','active_ninjas','settings'] loop
+  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','settings'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before insert or update on public.%I for each row execute function public.touch_updated_at()', t);
     -- Only signed-in team members can read or change anything. Visitors who are not signed in get nothing.

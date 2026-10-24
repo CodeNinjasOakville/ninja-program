@@ -3,13 +3,13 @@
 // ids are handed out by the server, updated_at is set by the server, filters/paging work.
 export function createMockSupabase({ users = { "a@example.com": "passw0rd-long-1", "b@example.com": "passw0rd-long-2" }, tokenSeconds = 3600 } = {}) {
   const URL_ = "https://mock.supabase.co";
-  const tables = { leads: [], belt_entries: [], receipts: [], active_ninjas: [], settings: [] };
-  const identity = { leads: 0, belt_entries: 0, receipts: 0, active_ninjas: 0 };
+  const tables = { leads: [], belt_entries: [], receipts: [], active_ninjas: [], jr_notes: [], settings: [] };
+  const identity = { leads: 0, belt_entries: 0, receipts: 0, active_ninjas: 0, jr_notes: 0 };
   const defaults = {
     leads: { entry_number: null, parent_name: null, phone_number: null, email: null, age: null, gbs_type: null, staff_name: null, coding_experience: null, comments: null, gbs_date: null, gbs_time: null, post_gbs_follow_up: null, gbs_completed: null, lead_date: null },
-    belt_entries: { old_belt: null, new_belt: null }, receipts: { details: null, entry_type: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null }, settings: {},
+    belt_entries: { old_belt: null, new_belt: null }, receipts: { details: null, entry_type: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null, belt: "", is_jr: 0 }, jr_notes: { author: null }, settings: {},
   };
-  const notNull = { leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], settings: ["key", "value"] };
+  const notNull = { leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], jr_notes: ["name", "note"], settings: ["key", "value"] };
   const tokens = new Map();     // access token -> { email, expires }
   const refresh = new Map();    // refresh token -> email
   const stats = { requests: 0, restCalls: 0, failNext: 0, log: [] };

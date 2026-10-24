@@ -4,13 +4,15 @@
 //  1. The wide weekly "Session Schedule" export (day columns across the top,
 //     time rows alternating with blocks of names).
 //  2. A flat CSV with Name / Day / Time Slot / AI columns.
-// Either way the result is a list of { name, day, time_slot, is_ai }.
+// Either way the result is a list of { name, day, time_slot, is_ai, is_jr }.
 
 import { parseCSV } from "./csv.js";
 
 const DAY_NAMES = new Set(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 const AI_MARKER_RE = /\s*\(\s*ai\s*\)\s*$/i;
+const JR_MARKER_RE = /\s*\(\s*(?:scratch\s*)?(?:jr|junior)\.?\s*\)\s*$/i;
 const TIME_CELL_RE = /\d{1,2}(:\d{2})?\s*(am|pm)/i;
+const YES = ["yes", "true", "1", "y", "x"];
 
 const FLAT_HEADER_ALIASES = {
   "name": "name",
@@ -20,15 +22,24 @@ const FLAT_HEADER_ALIASES = {
   "time": "time_slot",
   "ai": "is_ai",
   "artificial intelligence": "is_ai",
+  "jr": "is_jr",
+  "junior": "is_jr",
+  "scratchjr": "is_jr",
+  "scratch jr": "is_jr",
 };
 
 const cell = (v) => String(v == null ? "" : v);
 
+// "Mia Lee (AI)" / "Mia Lee (JR)" -> [name, isAi, isJr]. Either marker, in any order.
 function splitName(raw) {
   let name = cell(raw).trim();
-  const isAi = AI_MARKER_RE.test(name);
-  if (isAi) name = name.replace(AI_MARKER_RE, "").trim();
-  return [name, isAi];
+  let isAi = false, isJr = false;
+  for (let again = true; again;) {
+    again = false;
+    if (AI_MARKER_RE.test(name)) { isAi = again = true; name = name.replace(AI_MARKER_RE, "").trim(); }
+    if (JR_MARKER_RE.test(name)) { isJr = again = true; name = name.replace(JR_MARKER_RE, "").trim(); }
+  }
+  return [name, isAi, isJr];
 }
 
 // Needs a row with at least two distinct day names - a flat CSV row only ever has one.
@@ -87,9 +98,9 @@ export function parseScheduleGrid(rows) {
       if (!timeSlot) continue;
 
       for (const line of namesCell.split(/\r\n|\r|\n/)) {
-        const [name, isAi] = splitName(line);
+        const [name, isAi, isJr] = splitName(line);
         if (!name) continue;
-        entries.push({ name, day: dayColumns[col], time_slot: timeSlot, is_ai: isAi });
+        entries.push({ name, day: dayColumns[col], time_slot: timeSlot, is_ai: isAi, is_jr: isJr });
       }
     }
   }
@@ -107,15 +118,17 @@ export function parseFlatCsv(rows) {
 
   const entries = [];
   for (const row of rows.slice(1)) {
-    const entry = { name: "", day: "", time_slot: "", is_ai: false };
+    const entry = { name: "", day: "", time_slot: "", is_ai: false, is_jr: false };
     for (const [i, field] of Object.entries(headerMap)) {
       const value = Number(i) < row.length ? cell(row[i]).trim() : "";
-      if (field === "is_ai") entry.is_ai = ["yes", "true", "1", "ai"].includes(value.toLowerCase());
+      if (field === "is_ai") entry.is_ai = [...YES, "ai"].includes(value.toLowerCase());
+      else if (field === "is_jr") entry.is_jr = [...YES, "jr"].includes(value.toLowerCase());
       else entry[field] = value;
     }
-    const [name, aiFromName] = splitName(entry.name);
+    const [name, aiFromName, jrFromName] = splitName(entry.name);
     entry.name = name;
     entry.is_ai = entry.is_ai || aiFromName;
+    entry.is_jr = entry.is_jr || jrFromName;
     if (entry.name) entries.push(entry);
   }
   return entries;
@@ -128,6 +141,8 @@ export function parseFlatCsv(rows) {
 
 // "AI Academies" is the Artificial Intelligence class, so those sessions get the AI badge.
 const AI_CLASS_RE = /^ai\b/i;
+// "JR" is the younger Ninjas' class (also "Junior", "ScratchJr", "Scratch Jr"): the JR badge.
+export const JR_CLASS_RE = /\b(?:scratch\s*)?(?:jr|junior)\b|scratchjr/i;
 
 /** Minutes since midnight for the start of "04:00 PM" / "4 PM - 5 PM"; null if there is no time. */
 export function slotStartMinutes(slot) {
@@ -169,7 +184,7 @@ export function looksLikeClassSchedule(rows) {
   return !!classScheduleColumns(rows);
 }
 
-/** One entry per Ninja per weekly session: { name, day, start, is_ai, classes: [...] } */
+/** One entry per Ninja per weekly session: { name, day, start, is_ai, is_jr, classes: [...] } */
 export function parseClassSchedule(rows) {
   const columns = classScheduleColumns(rows);
   if (!columns) return [];
@@ -185,9 +200,10 @@ export function parseClassSchedule(rows) {
     const className = at(row, "class name");
 
     const key = `${name.toLowerCase()}|${day}|${start}`;
-    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, classes: [] });
+    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, is_jr: false, classes: [] });
     const entry = merged.get(key);
     if (AI_CLASS_RE.test(className)) entry.is_ai = true;
+    if (JR_CLASS_RE.test(className)) entry.is_jr = true;
     if (className && !entry.classes.includes(className)) entry.classes.push(className);
   }
   return [...merged.values()];

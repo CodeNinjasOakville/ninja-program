@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS receipts (
 );
 
 -- Currently-enrolled Ninjas and which weekly session they attend.
--- is_ai marks a session that is an Artificial Intelligence class.
+-- is_ai marks a session that is an Artificial Intelligence class; is_jr a JR (ScratchJr) class.
 -- belt is the Ninja's belt, the same on every one of their rows (see js/lib/belt_match.js).
 CREATE TABLE IF NOT EXISTS active_ninjas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,6 +63,17 @@ CREATE TABLE IF NOT EXISTS active_ninjas (
     is_ai INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
     belt TEXT DEFAULT '',
+    is_jr INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- What each JR Ninja is working on, written by the senseis. One row per note, matched to the
+-- Ninja by name (ignoring case/spacing), newest shown first.
+CREATE TABLE IF NOT EXISTS jr_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    note TEXT NOT NULL,
+    author TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -95,6 +106,12 @@ export const MIGRATIONS = [
   (conn) => {
     if (!conn.all("PRAGMA table_info(active_ninjas)").some((c) => c.name === "belt")) {
       conn.run("ALTER TABLE active_ninjas ADD COLUMN belt TEXT DEFAULT ''");
+    }
+  },
+  // 2: JR classes. (The jr_notes table comes from SCHEMA.)
+  (conn) => {
+    if (!conn.all("PRAGMA table_info(active_ninjas)").some((c) => c.name === "is_jr")) {
+      conn.run("ALTER TABLE active_ninjas ADD COLUMN is_jr INTEGER NOT NULL DEFAULT 0");
     }
   },
 ];
@@ -224,7 +241,7 @@ export function describeImportable(bytes) {
   try {
     const res = probe.exec("SELECT name FROM sqlite_master WHERE type='table'");
     const tables = res.length ? res[0].values.map((v) => v[0]) : [];
-    const known = ["leads", "belt_entries", "active_ninjas", "receipts", "settings"].filter((t) => tables.includes(t));
+    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "receipts", "settings"].filter((t) => tables.includes(t));
     if (!known.length) return { ok: false, reason: "That database doesn't look like a Ninja Program database." };
     return { ok: true, tables: known };
   } catch (error) {
@@ -242,6 +259,7 @@ export const SYNC_TABLES = {
   belt_entries: { pk: "id" },
   receipts: { pk: "id" },
   active_ninjas: { pk: "id" },
+  jr_notes: { pk: "id" },
   settings: { pk: "key" },
 };
 

@@ -275,6 +275,9 @@ function setActiveView(view) {
   document.getElementById("viewListBtn").classList.toggle("active", view === "list");
   document.getElementById("activeSchedule").style.display = view === "schedule" ? "grid" : "none";
   document.getElementById("activeListWrap").style.display = view === "list" ? "block" : "none";
+  document.getElementById("viewJrBtn").classList.toggle("active", view === "jr");
+  document.getElementById("activeJr").style.display = view === "jr" ? "grid" : "none";
+  if (view === "jr") loadJrView();
 }
 
 function personKey(name) {
@@ -295,6 +298,14 @@ function shortDay(day) {
 
 function sessionLabel(r) {
   return `${shortDay(r.day)} ${r.time_slot || "no time"}`.trim();
+}
+
+// "Mon 4 PM" pill with the AI / JR badges.
+function sessionPill(r) {
+  const pill = el("span", { class: "session-pill" + (r.is_ai ? " ai" : "") + (r.is_jr ? " jr" : ""), text: sessionLabel(r) });
+  if (r.is_ai) pill.appendChild(el("span", { class: "ai-badge", text: "AI" }));
+  if (r.is_jr) pill.appendChild(el("span", { class: "jr-badge", text: "JR" }));
+  return pill;
 }
 
 // Every Ninja's sessions, keyed by name - always from the full roster so a search
@@ -357,22 +368,25 @@ function renderActiveSchedule(rows, allRows) {
         const block = el("div", { class: "slot-block" });
         block.appendChild(el("div", { class: "slot-time", text: slot }));
 
-        // Artificial Intelligence sessions first, then alphabetical.
+        // Artificial Intelligence sessions first, then JR, then alphabetical.
         bySlot[slot]
-          .sort((a, b) => (b.is_ai - a.is_ai) || a.name.localeCompare(b.name))
+          .sort((a, b) => (b.is_ai - a.is_ai) || (b.is_jr - a.is_jr) || a.name.localeCompare(b.name))
           .forEach((row) => {
             const key = personKey(row.name);
-            const chip = el("div", { class: "ninja-chip" + (row.is_ai ? " ai" : ""), "data-person": key });
+            const chip = el("div", {
+              class: "ninja-chip" + (row.is_ai ? " ai" : "") + (row.is_jr ? " jr" : ""), "data-person": key,
+            });
             const label = el("span", { class: "chip-name" });
             label.appendChild(el("span", { text: row.name }));
             if (row.is_ai) label.appendChild(el("span", { class: "ai-badge", text: "AI" }));
+            if (row.is_jr) label.appendChild(el("span", { class: "jr-badge", text: "JR" }));
 
             // Spell out the Ninja's other classes right on the chip.
             const others = (sessionsByName[key] || []).filter((r) => r.id !== row.id);
             if (others.length) {
               label.appendChild(el("span", {
                 class: "chip-also",
-                text: "Also: " + others.map((r) => sessionLabel(r) + (r.is_ai ? " (AI)" : "")).join(", "),
+                text: "Also: " + others.map((r) => sessionLabel(r) + (r.is_ai ? " (AI)" : "") + (r.is_jr ? " (JR)" : "")).join(", "),
               }));
               // Hovering one chip highlights the same Ninja's other classes.
               chip.addEventListener("mouseenter", () => {
@@ -387,6 +401,11 @@ function renderActiveSchedule(rows, allRows) {
             chip.appendChild(label);
 
             const actions = el("span", { class: "chip-actions" });
+            if (row.is_jr) {
+              const notesBtn = el("button", { class: "btn-icon btn-edit", title: "JR notes: what they're working on", text: "\ud83d\udcdd" });
+              notesBtn.addEventListener("click", () => openJrNotes(row.name));
+              actions.appendChild(notesBtn);
+            }
             const editBtn = el("button", { class: "btn-icon btn-edit", title: "Edit / move", text: "\u270e" });
             editBtn.addEventListener("click", () => openActiveModal(row));
             const delBtn = el("button", { class: "btn-icon", title: "Remove", text: "\u2716" });
@@ -525,11 +544,7 @@ async function loadActiveNinjas(options) {
     tr.appendChild(el("td", { class: "class-count", text: String(person.sessions.length) }));
 
     const sessionsCell = el("td", { class: "sessions-cell" });
-    person.sessions.forEach((r) => {
-      const pill = el("span", { class: "session-pill" + (r.is_ai ? " ai" : ""), text: sessionLabel(r) });
-      if (r.is_ai) pill.appendChild(el("span", { class: "ai-badge", text: "AI" }));
-      sessionsCell.appendChild(pill);
-    });
+    person.sessions.forEach((r) => sessionsCell.appendChild(sessionPill(r)));
     tr.appendChild(sessionsCell);
 
     const actionsCell = el("td", { class: "actions-cell" });
@@ -662,6 +677,7 @@ document.getElementById("importActiveFile").addEventListener("change", async (e)
 // Nothing is added until "Add Selected" is pressed, and Ninjas already on the roster are never touched.
 
 let rosterReviewPeople = [];   // [{name, similar_to, sessions, checkbox}]
+let rosterJrMarks = [];        // [{name, day, time_slot}] classes already on the roster to mark JR
 
 function rosterReviewRow(person, checked) {
   const checkbox = el("input", { type: "checkbox" });
@@ -674,11 +690,7 @@ function rosterReviewRow(person, checked) {
     name.appendChild(el("span", { class: "muted review-similar", text: `already here as "${person.similar_to}"?` }));
   }
   const sessions = el("span", { class: "sessions-cell" });
-  person.sessions.forEach((r) => {
-    const pill = el("span", { class: "session-pill" + (r.is_ai ? " ai" : ""), text: sessionLabel(r) });
-    if (r.is_ai) pill.appendChild(el("span", { class: "ai-badge", text: "AI" }));
-    sessions.appendChild(pill);
-  });
+  person.sessions.forEach((r) => sessions.appendChild(sessionPill(r)));
   return el("label", { class: "review-row" }, [checkbox, name, sessions]);
 }
 
@@ -686,19 +698,40 @@ function updateRosterReviewUI() {
   const picked = rosterReviewPeople.filter((p) => p.checkbox.checked).length;
   const fresh = rosterReviewPeople.filter((p) => !p.similar_to);
   document.getElementById("rosterSelectAll").checked = fresh.length > 0 && fresh.every((p) => p.checkbox.checked);
+  const jr = document.getElementById("rosterJrAll").checked ? rosterJrMarks.length : 0;
   const btn = document.getElementById("rosterSubmit");
-  btn.textContent = picked ? `Add ${picked} Ninja${picked === 1 ? "" : "s"}` : "Add Selected";
-  btn.disabled = picked === 0;
+  const parts = [];
+  if (picked) parts.push(`Add ${picked} Ninja${picked === 1 ? "" : "s"}`);
+  if (jr) parts.push(`${picked ? "mark" : "Mark"} ${jr} JR class${jr === 1 ? "" : "es"}`);
+  btn.textContent = parts.length ? parts.join(" + ") : "Add Selected";
+  btn.disabled = picked === 0 && jr === 0;
 }
+
+document.getElementById("rosterJrAll").addEventListener("change", updateRosterReviewUI);
 
 function openRosterReview(result) {
   hideBanner("rosterError");
   rosterReviewPeople = result.people;
+  rosterJrMarks = result.jrMarks || [];
   const fresh = result.people.filter((p) => !p.similar_to);
   const similar = result.people.filter((p) => p.similar_to);
   const existing = result.alreadyThere;
 
-  if (!result.people.length) {
+  const jrList = document.getElementById("rosterJrList");
+  jrList.innerHTML = "";
+  const jrByName = {};
+  rosterJrMarks.forEach((m) => { (jrByName[m.name] = jrByName[m.name] || []).push(m); });
+  Object.keys(jrByName).forEach((name) => {
+    const sessions = el("span", { class: "sessions-cell" });
+    jrByName[name].forEach((m) => sessions.appendChild(sessionPill({ ...m, is_jr: 1 })));
+    jrList.appendChild(el("div", { class: "review-row" }, [el("span", { class: "person-name", text: name }), sessions]));
+  });
+  document.getElementById("rosterJrTitle").textContent =
+    `Mark JR classes for Ninjas already here (${Object.keys(jrByName).length})`;
+  document.getElementById("rosterJrAll").checked = true;
+  document.getElementById("rosterJrSection").style.display = rosterJrMarks.length ? "block" : "none";
+
+  if (!result.people.length && !rosterJrMarks.length) {
     showBanner(
       "activeImportBanner",
       `Nothing to add - all ${existing.length} Ninja${existing.length === 1 ? "" : "s"} in that file are already on the roster.`,
@@ -744,21 +777,238 @@ document.getElementById("rosterSubmit").addEventListener("click", async () => {
   const people = rosterReviewPeople
     .filter((p) => p.checkbox.checked)
     .map((p) => ({ name: p.name, sessions: p.sessions }));
+  const jrMarks = document.getElementById("rosterJrAll").checked ? rosterJrMarks : [];
   const btn = document.getElementById("rosterSubmit");
   btn.disabled = true;
 
   try {
-    const result = await api("/api/active-ninjas/import/confirm", { method: "POST", body: JSON.stringify({ people }) });
+    const result = await api("/api/active-ninjas/import/confirm", { method: "POST", body: JSON.stringify({ people, jrMarks }) });
     let message = `${result.addedNinjas} Ninja${result.addedNinjas === 1 ? "" : "s"} added ` +
       `(${result.addedSessions} class${result.addedSessions === 1 ? "" : "es"}).`;
+    if (result.markedJr) message += ` ${result.markedJr} existing class${result.markedJr === 1 ? "" : "es"} marked JR.`;
     if (result.skipped.length) message += `\n\nAlready on the roster, left untouched: ${result.skipped.join(", ")}`;
     document.getElementById("rosterModalOverlay").classList.remove("open");
-    showBanner("activeImportBanner", message, result.addedNinjas > 0 ? "success" : "error");
+    showBanner("activeImportBanner", message, result.addedNinjas > 0 || result.markedJr > 0 ? "success" : "error");
     loadActiveNinjas();
   } catch (error) {
     showBanner("rosterError", error.message, "error");
     btn.disabled = false;
   }
+});
+
+// ---- JR Ninjas: everyone in a JR class, and notes on what each one is working on ----
+// Notes are shared with the whole team like everything else, newest first.
+
+const JR_NOTES_SHOWN = 3;
+const JR_AUTHOR_KEY = "ninja.jrAuthor";
+const jrKey = (name) => personKey(name).replace(/\s+/g, " ");
+const jrExpanded = new Set(); // cards showing every note, not just the latest few
+
+// The name put on new notes: whatever was typed last time on this computer, else the sign-in name.
+function jrAuthor() {
+  try {
+    const saved = localStorage.getItem(JR_AUTHOR_KEY);
+    if (saved) return saved;
+  } catch (_) { /* storage blocked */ }
+  return String(window.ninjaUserEmail || "").split("@")[0];
+}
+
+function rememberJrAuthor(name) {
+  try { localStorage.setItem(JR_AUTHOR_KEY, name); } catch (_) { /* storage blocked */ }
+}
+
+// Saved in UTC ("2026-10-24 18:05:00"); shown as a local date.
+function noteDate(createdAt) {
+  const raw = String(createdAt || "");
+  const d = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(raw) ? raw : raw.replace(" ", "T") + "Z");
+  return isNaN(d) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function inlineError(node, message) {
+  node.textContent = message;
+  node.className = "banner show error";
+}
+
+function jrNoteItem(note, isLatest, refresh) {
+  const item = el("div", { class: "jr-note" + (isLatest ? " latest" : "") });
+  const text = el("div", { class: "jr-note-text", text: note.note });
+  const meta = el("div", { class: "jr-note-meta" });
+  meta.appendChild(el("span", {
+    text: (isLatest ? "Latest · " : "") + [noteDate(note.created_at), note.author].filter(Boolean).join(" · "),
+  }));
+  const tools = el("span", { class: "jr-note-tools" });
+  const editBtn = el("button", { class: "btn-icon btn-edit", type: "button", title: "Edit note", text: "✎" });
+  const delBtn = el("button", { class: "btn-icon", type: "button", title: "Delete note", text: "✖" });
+  tools.append(editBtn, delBtn);
+  meta.appendChild(tools);
+  item.append(text, meta);
+
+  editBtn.addEventListener("click", () => {
+    const box = el("textarea", { class: "jr-draft", rows: "3", "data-draft": "1" });
+    box.value = note.note;
+    const save = el("button", { class: "btn-primary", type: "button", text: "Save" });
+    const cancel = el("button", { class: "btn-secondary", type: "button", text: "Cancel" });
+    const error = el("div", { class: "banner" });
+    const editor = el("div", { class: "jr-edit" }, [box, el("div", { class: "jr-add-row" }, [cancel, save]), error]);
+    item.replaceChild(editor, text);
+    tools.style.display = "none";
+    box.focus();
+    cancel.addEventListener("click", () => {
+      item.replaceChild(text, editor);
+      tools.style.display = "";
+    });
+    save.addEventListener("click", async () => {
+      if (!box.value.trim()) { inlineError(error, "A note can't be empty. Delete it instead."); return; }
+      save.disabled = true;
+      try {
+        await api(`/api/jr-notes/${note.id}`, { method: "PUT", body: JSON.stringify({ note: box.value }) });
+        box.value = "";
+        await refresh();
+      } catch (e) {
+        inlineError(error, e.message);
+        save.disabled = false;
+      }
+    });
+  });
+
+  delBtn.addEventListener("click", async () => {
+    const ok = await confirmDialog("Delete Note", `Delete this note?\n\n"${note.note}"`);
+    if (!ok) return;
+    await api(`/api/jr-notes/${note.id}`, { method: "DELETE" });
+    await refresh();
+  });
+  return item;
+}
+
+// One JR Ninja: belt, classes, a box to add a note, then the notes (latest few, or all).
+function jrCard(person, refresh) {
+  const key = jrKey(person.name);
+  const card = el("div", { class: "jr-card", "data-person": key });
+
+  const head = el("div", { class: "jr-card-head" });
+  head.appendChild(el("span", { class: "person-name", text: person.name }));
+  head.appendChild(el("span", { class: "jr-belt" + (person.belt ? "" : " belt-unknown"), text: person.belt ? `${person.belt} belt` : "No belt yet" }));
+  card.appendChild(head);
+  const sessions = el("div", { class: "sessions-cell" });
+  sortSessions(person.sessions).forEach((r) => sessions.appendChild(sessionPill(r)));
+  card.appendChild(sessions);
+
+  const draft = el("textarea", {
+    class: "jr-draft jr-new", rows: "2", "data-draft": "1",
+    placeholder: "What are they working on? (Ctrl+Enter to save)",
+  });
+  const author = el("input", { type: "text", class: "jr-author", placeholder: "Your name", title: "Who wrote this note" });
+  author.value = jrAuthor();
+  const addBtn = el("button", { class: "btn-primary", type: "button", text: "Add note" });
+  const error = el("div", { class: "banner" });
+  addBtn.addEventListener("click", async () => {
+    const note = draft.value.trim();
+    if (!note) { draft.focus(); return; }
+    addBtn.disabled = true;
+    try {
+      await api("/api/jr-notes", { method: "POST", body: JSON.stringify({ name: person.name, note, author: author.value.trim() }) });
+      rememberJrAuthor(author.value.trim());
+      draft.value = "";
+      await refresh();
+    } catch (e) {
+      inlineError(error, e.message);
+      addBtn.disabled = false;
+    }
+  });
+  draft.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addBtn.click();
+  });
+  card.appendChild(el("div", { class: "jr-add" }, [draft, el("div", { class: "jr-add-row" }, [author, addBtn]), error]));
+
+  const list = el("div", { class: "jr-notes" });
+  if (!person.notes.length) list.appendChild(el("div", { class: "muted", text: "No notes yet." }));
+  const shown = jrExpanded.has(key) ? person.notes : person.notes.slice(0, JR_NOTES_SHOWN);
+  shown.forEach((n, i) => list.appendChild(jrNoteItem(n, i === 0, refresh)));
+  if (person.notes.length > JR_NOTES_SHOWN) {
+    const more = el("button", {
+      class: "link-btn", type: "button",
+      text: jrExpanded.has(key) ? "Show only the latest" : `Show all ${person.notes.length} notes`,
+    });
+    more.addEventListener("click", async () => {
+      if (jrExpanded.has(key)) jrExpanded.delete(key); else jrExpanded.add(key);
+      await refresh();
+    });
+    list.appendChild(more);
+  }
+  card.appendChild(list);
+  return card;
+}
+
+// Unsent "add note" text survives a redraw.
+function keepJrDrafts(container, draw) {
+  const drafts = {};
+  container.querySelectorAll(".jr-card").forEach((card) => {
+    const box = card.querySelector("textarea.jr-new");
+    if (box && box.value) drafts[card.dataset.person] = box.value;
+  });
+  draw();
+  container.querySelectorAll(".jr-card").forEach((card) => {
+    const box = card.querySelector("textarea.jr-new");
+    if (box && drafts[card.dataset.person]) box.value = drafts[card.dataset.person];
+  });
+}
+
+async function loadJrView() {
+  const container = document.getElementById("activeJr");
+  let people;
+  try {
+    people = await api("/api/jr-ninjas");
+  } catch (error) {
+    container.textContent = error.message;
+    return;
+  }
+  const search = jrKey(document.getElementById("activeSearch").value);
+  const shown = !search || search === "jr" ? people : people.filter((p) =>
+    jrKey(p.name).includes(search) || p.sessions.some((s) => jrKey(`${s.day} ${s.time_slot}`).includes(search)));
+
+  keepJrDrafts(container, () => {
+    container.innerHTML = "";
+    if (!people.length) {
+      container.appendChild(el("div", {
+        class: "jr-summary muted",
+        text: "No JR Ninjas yet. Importing the MyStudio schedule marks JR classes automatically, " +
+          "or tick \"JR?\" on a Ninja's class with the ✎ button.",
+      }));
+      return;
+    }
+    const notes = people.reduce((n, p) => n + p.notes.length, 0);
+    container.appendChild(el("div", {
+      class: "jr-summary muted",
+      text: `${people.length} JR Ninja${people.length === 1 ? "" : "s"}` +
+        (shown.length !== people.length ? ` (${shown.length} match the search)` : "") +
+        ` · ${notes} note${notes === 1 ? "" : "s"}. Notes are shared with every sensei.`,
+    }));
+    shown.forEach((p) => container.appendChild(jrCard(p, loadJrView)));
+  });
+}
+
+document.getElementById("viewJrBtn").addEventListener("click", () => setActiveView("jr"));
+
+// The 📝 button on a JR Ninja in the schedule.
+async function openJrNotes(name) {
+  const body = document.getElementById("jrModalBody");
+  const draw = async () => {
+    const people = await api("/api/jr-ninjas");
+    const person = people.find((p) => jrKey(p.name) === jrKey(name)) || { name, belt: "", sessions: [], notes: [] };
+    keepJrDrafts(body, () => {
+      body.innerHTML = "";
+      body.appendChild(jrCard(person, draw));
+    });
+  };
+  await draw();
+  document.getElementById("jrModalOverlay").classList.add("open");
+  const box = body.querySelector("textarea.jr-new");
+  if (box) box.focus();
+}
+
+document.getElementById("jrModalClose").addEventListener("click", () => {
+  document.getElementById("jrModalOverlay").classList.remove("open");
+  if (activeView === "jr") loadJrView();
 });
 
 // ---- Add / Edit modal: one Ninja, any number of sessions ----
@@ -791,14 +1041,19 @@ function renderSessionRows() {
     aiBox.addEventListener("change", () => { sess.is_ai = aiBox.checked; });
     const aiCell = el("label", { class: "session-ai" }, [aiBox]);
 
+    const jrBox = el("input", { type: "checkbox", title: "JR (ScratchJr) class" });
+    jrBox.checked = !!sess.is_jr;
+    jrBox.addEventListener("change", () => { sess.is_jr = jrBox.checked; });
+    const jrCell = el("label", { class: "session-ai" }, [jrBox]);
+
     const removeBtn = el("button", { class: "btn-icon", type: "button", title: "Remove this session", text: "\u2716" });
     removeBtn.addEventListener("click", () => {
       sessionRows.splice(index, 1);
-      if (sessionRows.length === 0) sessionRows.push({ day: "", time_slot: "", is_ai: false });
+      if (sessionRows.length === 0) sessionRows.push({ day: "", time_slot: "", is_ai: false, is_jr: false });
       renderSessionRows();
     });
 
-    [daySelect, timeInput, aiCell, removeBtn].forEach((node) => line.appendChild(node));
+    [daySelect, timeInput, aiCell, jrCell, removeBtn].forEach((node) => line.appendChild(node));
     container.appendChild(line);
   });
 }
@@ -842,7 +1097,7 @@ async function openActiveModal(row) {
     fillBeltSelect((all.find((r) => r.belt) || {}).belt || "");
 
     sessionRows = all
-      .map((r) => ({ id: r.id, day: r.day || "", time_slot: r.time_slot || "", is_ai: !!r.is_ai }))
+      .map((r) => ({ id: r.id, day: r.day || "", time_slot: r.time_slot || "", is_ai: !!r.is_ai, is_jr: !!r.is_jr }))
       .sort((a, b) => dayIndex(a.day) - dayIndex(b.day) ||
                       timeSlotSortKey(a.time_slot) - timeSlotSortKey(b.time_slot));
   } else {
@@ -850,7 +1105,7 @@ async function openActiveModal(row) {
     document.getElementById("activeModalTitle").textContent = "Add Ninja";
     document.getElementById("af_name").value = "";
     fillBeltSelect("");
-    sessionRows = [{ day: "", time_slot: "", is_ai: false }];
+    sessionRows = [{ day: "", time_slot: "", is_ai: false, is_jr: false }];
   }
 
   renderSessionRows();
@@ -863,7 +1118,7 @@ document.getElementById("addSessionBtn").addEventListener("click", () => {
   // Start the new row from the previous one: same day is the common case
   // (regular hour then AI hour), and it saves retyping.
   const last = sessionRows[sessionRows.length - 1] || { day: "", time_slot: "" };
-  sessionRows.push({ day: last.day, time_slot: "", is_ai: false });
+  sessionRows.push({ day: last.day, time_slot: "", is_ai: false, is_jr: !!last.is_jr });
   renderSessionRows();
   const inputs = document.querySelectorAll("#af_sessions .session-row input[type=text]");
   if (inputs.length) inputs[inputs.length - 1].focus();
@@ -879,8 +1134,8 @@ document.getElementById("activeModalSubmit").addEventListener("click", async () 
     name: document.getElementById("af_name").value,
     belt: document.getElementById("af_belt").value,
     sessions: sessionRows
-      .filter((s) => s.id || s.day || (s.time_slot || "").trim() || s.is_ai)
-      .map((s) => ({ id: s.id, day: s.day, time_slot: s.time_slot, is_ai: s.is_ai })),
+      .filter((s) => s.id || s.day || (s.time_slot || "").trim() || s.is_ai || s.is_jr)
+      .map((s) => ({ id: s.id, day: s.day, time_slot: s.time_slot, is_ai: s.is_ai, is_jr: s.is_jr })),
   };
 
   const btn = document.getElementById("activeModalSubmit");
