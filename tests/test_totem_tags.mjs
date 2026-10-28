@@ -22,6 +22,8 @@ const doc = await globalThis.PDFLib.PDFDocument.load(sheet.bytes);
 check("belt list PDF is made", sheet.count === 3 && doc.getPageCount() === 1 && sheet.filename === "Totem Tag Belts.pdf", sheet.count);
 const many = await handleRequest("POST", "/api/totem-tags/belt-sheet", { names: Array.from({ length: 60 }, (_, i) => `Ninja ${i}`) });
 check("a long belt list runs onto more pages", (await globalThis.PDFLib.PDFDocument.load(many.bytes)).getPageCount() > 1);
+const standalone = await handleRequest("POST", "/api/totem-tags/belt-sheet", { names: ["Mia Lee", "Ethan Smith Doe", "mia lee"], standalone: true });
+check("Active Ninjas belt list: one row per Ninja, own title", standalone.count === 2 && standalone.filename === "Ninja Belts.pdf", standalone);
 let refused = null;
 try { await handleRequest("POST", "/api/totem-tags/belt-sheet", { names: [] }); } catch (e) { refused = e; }
 check("empty belt list is refused", refused && refused.status === 400, refused && refused.message);

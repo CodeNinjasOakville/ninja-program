@@ -59,7 +59,41 @@ function el(tag, attrs, children) {
 async function api(path, options) {
   const method = ((options && options.method) || "GET").toUpperCase();
   const body = options && options.body ? JSON.parse(options.body) : undefined;
-  return window.ninjaApi(method, path, body);
+  try {
+    return await window.ninjaApi(method, path, body);
+  } catch (error) {
+    // This screen asked for something the rest of the app doesn't know: right after an update the
+    // browser can still be using saved copies of some old files. Offer to load the new version.
+    if (error && error.status === 404 && error.message === "Not found.") {
+      offerLatestVersion();
+      throw new Error("The app was just updated and this browser is still using part of the old version.");
+    }
+    throw error;
+  }
+}
+
+let latestVersionOffered = false;
+async function offerLatestVersion() {
+  if (latestVersionOffered) return;
+  latestVersionOffered = true;
+  const ok = await confirmDialog(
+    "Load the new version",
+    "The app was updated, but this browser is still using some saved files from the old version, " +
+      "so that button couldn't work.\n\nLoad the new version now? It only takes a moment."
+  );
+  if (ok) await loadLatestVersion();
+  else latestVersionOffered = false;
+}
+
+// Re-download every file this page uses (skipping the browser's saved copies), then reload.
+async function loadLatestVersion() {
+  const urls = new Set([location.href.split("#")[0]]);
+  performance.getEntriesByType("resource").forEach((entry) => {
+    const url = new URL(entry.name);
+    if (url.origin === location.origin && /\.(js|css|wasm|html)$/.test(url.pathname)) urls.add(url.href);
+  });
+  await Promise.all([...urls].map((url) => fetch(url, { cache: "reload" }).catch(() => null)));
+  location.reload();
 }
 
 async function apiUpload(path, file) {
@@ -662,6 +696,24 @@ document.getElementById("printTotemTagsActiveBtn").addEventListener("click", () 
     "activeImportBanner",
     "the Active Ninjas list"
   );
+});
+
+// A page of names and belts: the ticked Ninjas, or everyone currently shown.
+document.getElementById("printBeltListActiveBtn").addEventListener("click", async () => {
+  hideBanner("activeImportBanner");
+  const picked = uniqueNames(activeRowsCache.filter((r) => activeSelected.has(r.id)).map((r) => r.name));
+  const names = picked.length ? picked : uniqueNames(activeRowsCache.map((r) => r.name));
+  if (!names.length) {
+    showBanner("activeImportBanner", "There are no Ninjas to list.", "error");
+    return;
+  }
+  try {
+    const result = await api("/api/totem-tags/belt-sheet", { method: "POST", body: JSON.stringify({ names, standalone: true }) });
+    openDownload(result);
+    showBanner("activeImportBanner", `Belt list for ${result.count} Ninja${result.count === 1 ? "" : "s"} downloaded.`, "success");
+  } catch (error) {
+    showBanner("activeImportBanner", error.message, "error");
+  }
 });
 
 // ---- Import CSV (Active Ninjas) ----

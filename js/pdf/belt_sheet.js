@@ -16,8 +16,11 @@ const BELT_COLOURS = {
   platinum: [0.86, 0.87, 0.9], gold: [0.85, 0.68, 0.13],
 };
 
-/** rows: [{name, belt}] in tag order. Returns {bytes, filename, count}. */
-export async function generateBeltSheetPdf(rows, { date = "" } = {}) {
+/**
+ * rows: [{name, belt}] in the order to print. Returns {bytes, filename, count}.
+ * tagSheets: true (after printing tags) adds a "Tag sheet N" heading every 18 names to match the paper.
+ */
+export async function generateBeltSheetPdf(rows, { date = "", tagSheets = true, title = "Totem Tag Belts" } = {}) {
   const list = (rows || []).filter((r) => String(r.name || "").trim());
   if (!list.length) throw new Error("No names to print.");
 
@@ -50,7 +53,7 @@ export async function generateBeltSheetPdf(rows, { date = "" } = {}) {
     pageNo += 1;
     y = PAGE[1] - MARGIN;
     if (pageNo === 1) {
-      page.drawText("Totem Tag Belts", { x: MARGIN, y: y - 18, size: 20, font: bold, color: ink });
+      page.drawText(safe(bold, title), { x: MARGIN, y: y - 18, size: 20, font: bold, color: ink });
       if (date) page.drawText(safe(font, date), { x: PAGE[0] - MARGIN - font.widthOfTextAtSize(date, 11), y: y - 16, size: 11, font, color: muted });
       y -= 40;
       const sumText = safe(font, summary.join("   ·   "));
@@ -58,7 +61,7 @@ export async function generateBeltSheetPdf(rows, { date = "" } = {}) {
       y -= 26;
     }
     page.drawText("#", { x: colX.num, y, size: 10, font: bold, color: muted });
-    page.drawText("NAME ON TAG", { x: colX.name, y, size: 10, font: bold, color: muted });
+    page.drawText(tagSheets ? "NAME ON TAG" : "NINJA", { x: colX.name, y, size: 10, font: bold, color: muted });
     page.drawText("BELT", { x: colX.swatch, y, size: 10, font: bold, color: muted });
     y -= 8;
     page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE[0] - MARGIN, y }, thickness: 1, color: line });
@@ -67,7 +70,7 @@ export async function generateBeltSheetPdf(rows, { date = "" } = {}) {
   newPage();
   list.forEach((r, i) => {
     // A small heading where each printed tag sheet starts, so the list lines up with the paper.
-    const sheetStart = i % TAGS_PER_SHEET === 0 && list.length > TAGS_PER_SHEET;
+    const sheetStart = tagSheets && i % TAGS_PER_SHEET === 0 && list.length > TAGS_PER_SHEET;
     const needed = ROW + (sheetStart ? ROW : 0);
     if (y - needed < MARGIN) newPage();
     if (sheetStart) {
@@ -91,5 +94,5 @@ export async function generateBeltSheetPdf(rows, { date = "" } = {}) {
     page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE[0] - MARGIN, y }, thickness: 0.5, color: line });
   });
 
-  return { bytes: await out.save(), filename: "Totem Tag Belts.pdf", count: list.length };
+  return { bytes: await out.save(), filename: `${title}.pdf`, count: list.length };
 }

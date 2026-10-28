@@ -145,11 +145,22 @@ route("POST", "/api/leads/totem-tags", totemTags);
 
 // Body: {names: [...]} in tag order -> a PDF listing each Ninja (as named on the tag) with their
 // current belt (Active Ninjas belt, else latest Belts-tab entry).
+// {standalone: true} (the Active Ninjas button) sorts by name and leaves out the tag-sheet headings.
 route("POST", "/api/totem-tags/belt-sheet", async ({ body }) => {
   const beltOf = currentBeltLookup(conn);
-  const rows = (body.names || []).map((n) => String(n == null ? "" : n).trim()).filter(Boolean)
+  const seen = new Set();
+  let rows = (body.names || []).map((n) => String(n == null ? "" : n).trim()).filter(Boolean)
     .map((name) => ({ name, belt: beltOf(name) }));
+  if (body.standalone) {
+    rows = rows
+      .filter((r) => !seen.has(r.name.toLowerCase()) && seen.add(r.name.toLowerCase()))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
   if (!rows.length) throw new ApiError("No names to print.");
-  const pdf = await generateBeltSheetPdf(rows, { date: todayCertificateDate() });
+  const pdf = await generateBeltSheetPdf(rows, {
+    date: todayCertificateDate(),
+    tagSheets: !body.standalone,
+    title: body.standalone ? "Ninja Belts" : "Totem Tag Belts",
+  });
   return { ok: true, count: pdf.count, filename: pdf.filename, bytes: pdf.bytes };
 });
