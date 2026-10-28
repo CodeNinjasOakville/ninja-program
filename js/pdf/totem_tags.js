@@ -11,12 +11,14 @@ const CELL_WIDTH = 1.9685 * INCH;
 const CELL_HEIGHT = 0.787402 * INCH;
 const PAGE = [612, 792]; // letter, portrait
 
-// Tags never show a full last name: "Jo Anne Rivera" -> "Jo Anne R.".
+// Tags never show a full last name: only the first name is written out, every name after it
+// becomes an initial. "Ethan Smith Doe" -> "Ethan S. D.", "Ava Smith-Jones" -> "Ava S.-J.".
+const initial = (part) => (part.replace(/\.$/, "") ? `${part[0].toUpperCase()}.` : "");
 export function tagName(name) {
-  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (words.length < 2) return words.join("");
-  const last = words.pop();
-  return `${words.join(" ")} ${last[0].toUpperCase()}.`;
+  const [first, ...rest] = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!first) return "";
+  const initials = rest.map((word) => word.split("-").map(initial).filter(Boolean).join("-"));
+  return [first, ...initials].filter(Boolean).join(" ");
 }
 
 export async function generateTotemTagsPdf(names) {
@@ -52,7 +54,11 @@ export async function generateTotemTagsPdf(names) {
 
       let text = "";
       for (const ch of name) { try { font.encodeText(ch); text += ch; } catch (_) { text += "?"; } }
-      page.drawText(text, { x: logoX + logoBox + 10, y: y + CELL_HEIGHT / 2 - 5, size: 15, font, color: ink });
+      // A long first name shrinks to fit inside the border instead of running past it.
+      const textX = logoX + logoBox + 10;
+      const room = x + CELL_WIDTH - 6 - textX;
+      const size = Math.max(8, Math.min(15, (15 * room) / font.widthOfTextAtSize(text, 15)));
+      page.drawText(text, { x: textX, y: y + CELL_HEIGHT / 2 - size / 3, size, font, color: ink });
     });
   }
 
