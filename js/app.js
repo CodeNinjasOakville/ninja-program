@@ -213,8 +213,27 @@ async function showTagBelts(names) {
     .map((belt) => `${belt}: ${counts[belt]}`);
   if (counts[""]) summary.push(`Not recorded: ${counts[""]}`);
   document.getElementById("tagBeltsSummary").textContent = summary.join("  \u00b7  ");
+  tagBeltNames = rows.map((r) => r.name);
+  hideBanner("tagBeltsBanner");
   document.getElementById("tagBeltsModalOverlay").classList.add("open");
 }
+
+let tagBeltNames = []; // names in the list above, in tag order
+
+// The same list as a page to print: name as it is on the tag, belt and a colour swatch.
+document.getElementById("tagBeltsPrint").addEventListener("click", async () => {
+  const btn = document.getElementById("tagBeltsPrint");
+  btn.disabled = true;
+  try {
+    const result = await api("/api/totem-tags/belt-sheet", { method: "POST", body: JSON.stringify({ names: tagBeltNames }) });
+    openDownload(result);
+    showBanner("tagBeltsBanner", "Belt list downloaded.", "success");
+  } catch (error) {
+    showBanner("tagBeltsBanner", error.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById("tagBeltsClose").addEventListener("click", () => {
   document.getElementById("tagBeltsModalOverlay").classList.remove("open");

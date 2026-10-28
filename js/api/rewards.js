@@ -2,10 +2,12 @@
 
 import { conn } from "../core/db.js";
 import { route } from "./router.js";
-import { ApiError, cleanIds, placeholders, pyInt, todayISO } from "../lib/util.js";
+import { ApiError, cleanIds, placeholders, pyInt, todayCertificateDate, todayISO } from "../lib/util.js";
 import * as rewards from "../lib/rewards.js";
+import { currentBeltLookup } from "../lib/belt_match.js";
 import { generateCertificatesPdf } from "../pdf/certificates.js";
 import { generateTotemTagsPdf } from "../pdf/totem_tags.js";
+import { generateBeltSheetPdf } from "../pdf/belt_sheet.js";
 
 const titleCase = (field) => field.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
 
@@ -140,3 +142,14 @@ async function totemTags({ body }) {
 
 route("POST", "/api/totem-tags", totemTags);
 route("POST", "/api/leads/totem-tags", totemTags);
+
+// Body: {names: [...]} in tag order -> a PDF listing each Ninja (as named on the tag) with their
+// current belt (Active Ninjas belt, else latest Belts-tab entry).
+route("POST", "/api/totem-tags/belt-sheet", async ({ body }) => {
+  const beltOf = currentBeltLookup(conn);
+  const rows = (body.names || []).map((n) => String(n == null ? "" : n).trim()).filter(Boolean)
+    .map((name) => ({ name, belt: beltOf(name) }));
+  if (!rows.length) throw new ApiError("No names to print.");
+  const pdf = await generateBeltSheetPdf(rows, { date: todayCertificateDate() });
+  return { ok: true, count: pdf.count, filename: pdf.filename, bytes: pdf.bytes };
+});
