@@ -1,5 +1,7 @@
 # Ninja Program — team version (GitHub Pages + Supabase)
 
+https://codeninjasoakville.github.io/ninja-program/
+
 The same Ninja Program screens as before (Leads, Belts, Active Ninjas, Rewards, Reward History, Settings,
 certificates, totem tags), now usable by your whole team from anywhere.
 
