@@ -1851,24 +1851,29 @@ function certificateBeltsForEntry(row) {
   return order.slice(oldIndex, newIndex).map(formatBeltName);
 }
 
-async function openBeltCertModal(row) {
-  hideBanner("beltsImportBanner");
+// Opens the certificate picker for one Ninja. Owed certificates start ticked; ones already
+// printed are listed too, so a lost certificate can be printed again.
+// opts: { bannerId: where errors/success go, intro: text above the list, onDone: after printing }
+async function openCertPicker(name, belts, opts) {
+  hideBanner(opts.bannerId);
   let outstanding;
   try {
     outstanding = await api("/api/certificates/outstanding");
   } catch (error) {
-    showBanner("beltsImportBanner", error.message, "error");
+    showBanner(opts.bannerId, error.message, "error");
     return;
   }
   const owed = new Set(outstanding
-    .filter((item) => personKey(item.name) === personKey(row.name))
+    .filter((item) => personKey(item.name) === personKey(name))
     .map((item) => item.belt));
 
-  beltCertRow = row;
-  document.getElementById("beltCertModalTitle").textContent = `Print Certificates - ${row.name}`;
+  beltCertRow = { name, bannerId: opts.bannerId, onDone: opts.onDone };
+  document.getElementById("beltCertModalTitle").textContent = `Print Certificates - ${name}`;
+  document.getElementById("beltCertIntro").textContent =
+    opts.intro || "One certificate per belt completed. Tick the ones to print.";
   const container = document.getElementById("beltCertOptions");
   container.innerHTML = "";
-  certificateBeltsForEntry(row).forEach((belt) => {
+  belts.forEach((belt) => {
     const checkbox = el("input", { type: "checkbox", value: belt });
     checkbox.checked = owed.has(belt);
     const text = owed.has(belt) ? `${belt} Belt` : `${belt} Belt (already printed)`;
@@ -1876,6 +1881,25 @@ async function openBeltCertModal(row) {
   });
   hideBanner("beltCertError");
   document.getElementById("beltCertModalOverlay").classList.add("open");
+}
+
+function openBeltCertModal(row) {
+  return openCertPicker(row.name, certificateBeltsForEntry(row), { bannerId: "beltsImportBanner" });
+}
+
+// Every belt a Ninja has completed (and so has a certificate for), across all their belt entries,
+// plus their name as written on the Belts tab (what goes on the certificate).
+async function completedBeltsForNinja(name) {
+  const entries = (await api("/api/belts"))
+    .filter((row) => personKey(row.name) === personKey(name))
+    .reverse(); // oldest first
+  const belts = [];
+  entries.forEach((row) => certificateBeltsForEntry(row).forEach((belt) => {
+    if (!belts.includes(belt)) belts.push(belt);
+  }));
+  const order = (settings.belt_options || []).map((b) => formatBeltName(normalizeBelt(b)));
+  belts.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  return { name: entries.length ? entries[0].name.trim() : name, belts };
 }
 
 document.getElementById("beltCertCancel").addEventListener("click", () => {
@@ -1896,8 +1920,9 @@ document.getElementById("beltCertSubmit").addEventListener("click", async () => 
       body: JSON.stringify({ name: beltCertRow.name, belts }),
     });
     document.getElementById("beltCertModalOverlay").classList.remove("open");
-    showBanner("beltsImportBanner", `Generated ${result.count} certificate(s) for ${beltCertRow.name}. Downloading...`, "success");
+    showBanner(beltCertRow.bannerId, `Generated ${result.count} certificate(s) for ${beltCertRow.name}. Downloading...`, "success");
     openDownload(result);
+    if (beltCertRow.onDone) beltCertRow.onDone();
   } catch (error) {
     showBanner("beltCertError", error.message, "error");
   } finally {
@@ -2005,6 +2030,9 @@ async function loadRewards() {
     });
 
     const actionsCell = el("td");
+    const giveBtn = el("button", { class: "btn-icon", title: `Give rewards to ${row.name}`, text: "🎁" });
+    giveBtn.addEventListener("click", () => openGiveRewards(row.name, row));
+    actionsCell.appendChild(giveBtn);
     if (row.certificates_remaining > 0) {
       const certBtn = el("button", { class: "btn-icon", title: "Generate certificate(s)", text: "\ud83c\udf93" });
       certBtn.addEventListener("click", () => generateCertificateForRow(row));
@@ -2071,13 +2099,21 @@ document.getElementById("generateAllCertsBtn").addEventListener("click", async (
 
 // ---- Give Rewards modal ----
 
-document.getElementById("giveRewardsBtn").addEventListener("click", () => {
-  document.getElementById("gr_names").value = "";
-  ["gr_ninja_bucks", "gr_large_coins", "gr_small_coins", "gr_prints", "gr_certificates", "gr_belts"]
-    .forEach((id) => { document.getElementById(id).value = "0"; });
+const GIVE_FIELDS = ["ninja_bucks", "large_coins", "small_coins", "prints", "certificates", "belts"];
+
+// name/row are set when opened from a Ninja's row: the name is filled in and what they are
+// still owed is shown under each box.
+function openGiveRewards(name, row) {
+  document.getElementById("gr_names").value = name || "";
+  GIVE_FIELDS.forEach((field) => {
+    document.getElementById("gr_" + field).value = "0";
+    document.getElementById("gr_owed_" + field).textContent = row ? `${row[field + "_remaining"]} owed` : "";
+  });
   hideBanner("giveRewardsError");
   document.getElementById("giveRewardsModalOverlay").classList.add("open");
-});
+}
+
+document.getElementById("giveRewardsBtn").addEventListener("click", () => openGiveRewards());
 
 document.getElementById("giveRewardsCancel").addEventListener("click", () => {
   document.getElementById("giveRewardsModalOverlay").classList.remove("open");
@@ -2088,7 +2124,7 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
     .split(",").map((n) => n.trim()).filter(Boolean);
 
   const payload = { names };
-  ["ninja_bucks", "large_coins", "small_coins", "prints", "certificates", "belts"].forEach((field) => {
+  GIVE_FIELDS.forEach((field) => {
     payload[field] = Number(document.getElementById("gr_" + field).value || 0);
   });
 
@@ -2096,6 +2132,17 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
   btn.disabled = true;
 
   try {
+    // More certificates than one Ninja is owed: they are reprinting (e.g. a lost certificate),
+    // so record the other rewards and let the person pick which certificates to print.
+    if (names.length === 1 && Number.isInteger(payload.certificates) && payload.certificates > 0) {
+      const summary = await api("/api/rewards/summary");
+      const owedRow = summary.rows.find((r) => personKey(r.name) === personKey(names[0]));
+      const owed = owedRow ? owedRow.certificates_remaining : 0;
+      if (payload.certificates > owed) {
+        await giveWithCertificatePicker(names[0], payload, owed);
+        return;
+      }
+    }
     await api("/api/rewards/give", { method: "POST", body: JSON.stringify(payload) });
     document.getElementById("giveRewardsModalOverlay").classList.remove("open");
     loadRewards();
@@ -2105,6 +2152,29 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
     btn.disabled = false;
   }
 });
+
+async function giveWithCertificatePicker(typedName, payload, owed) {
+  const { name, belts } = await completedBeltsForNinja(typedName);
+  if (!belts.length) {
+    throw new Error(`${typedName} has not completed any belts yet, so there are no certificates to print.`);
+  }
+
+  const others = { ...payload, names: [name], certificates: 0 };
+  const hasOthers = GIVE_FIELDS.some((field) => others[field] !== 0);
+  if (hasOthers) await api("/api/rewards/give", { method: "POST", body: JSON.stringify(others) });
+
+  document.getElementById("giveRewardsModalOverlay").classList.remove("open");
+  await loadRewards();
+
+  const owedText = owed === 1 ? "only 1 is owed" : `only ${owed} are owed`;
+  await openCertPicker(name, belts, {
+    bannerId: "rewardsBanner",
+    intro: `You entered ${payload.certificates} certificates but ${owedText}. ` +
+      "Tick the ones to print - certificates already printed can be printed again." +
+      (hasOthers ? " The other rewards have been recorded." : ""),
+    onDone: loadRewards,
+  });
+}
 
 // ================================================================
 // REWARD HISTORY

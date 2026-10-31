@@ -269,7 +269,7 @@
   <div class="modal-overlay" id="beltCertModalOverlay">
     <div class="modal">
       <h2 id="beltCertModalTitle">Print Certificates</h2>
-      <p class="muted">One certificate per belt completed. Tick the ones to print.</p>
+      <p class="muted" id="beltCertIntro">One certificate per belt completed. Tick the ones to print.</p>
       <div class="banner error" id="beltCertError"></div>
       <div class="checkbox-field" id="beltCertOptions"></div>
       <div class="modal-actions">
@@ -304,12 +304,12 @@
         <input type="text" id="gr_names" placeholder="Ethan Dolphin, John Smith">
       </div>
       <div class="form-grid">
-        <div class="field"><label for="gr_ninja_bucks">Ninja Bucks</label><input type="text" id="gr_ninja_bucks" value="0"></div>
-        <div class="field"><label for="gr_large_coins">Large Coins ($10)</label><input type="text" id="gr_large_coins" value="0"></div>
-        <div class="field"><label for="gr_small_coins">Small Coins ($1)</label><input type="text" id="gr_small_coins" value="0"></div>
-        <div class="field"><label for="gr_prints">3D Prints</label><input type="text" id="gr_prints" value="0"></div>
-        <div class="field"><label for="gr_certificates">Certificates</label><input type="text" id="gr_certificates" value="0"></div>
-        <div class="field"><label for="gr_belts">New Belts</label><input type="text" id="gr_belts" value="0"></div>
+        <div class="field"><label for="gr_ninja_bucks">Ninja Bucks</label><div class="hint" id="gr_owed_ninja_bucks"></div><input type="text" id="gr_ninja_bucks" value="0"></div>
+        <div class="field"><label for="gr_large_coins">Large Coins ($10)</label><div class="hint" id="gr_owed_large_coins"></div><input type="text" id="gr_large_coins" value="0"></div>
+        <div class="field"><label for="gr_small_coins">Small Coins ($1)</label><div class="hint" id="gr_owed_small_coins"></div><input type="text" id="gr_small_coins" value="0"></div>
+        <div class="field"><label for="gr_prints">3D Prints</label><div class="hint" id="gr_owed_prints"></div><input type="text" id="gr_prints" value="0"></div>
+        <div class="field"><label for="gr_certificates">Certificates</label><div class="hint" id="gr_owed_certificates"></div><input type="text" id="gr_certificates" value="0"></div>
+        <div class="field"><label for="gr_belts">New Belts</label><div class="hint" id="gr_owed_belts"></div><input type="text" id="gr_belts" value="0"></div>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary" id="giveRewardsCancel">Cancel</button>
