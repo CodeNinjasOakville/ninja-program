@@ -124,6 +124,40 @@ function hideBanner(elId) {
   banner.className = "banner";
 }
 
+// A banner with a one-line summary, a close button, and long lists folded into
+// "show details" sections (closed until clicked) so they never cover the page.
+// sections: [{ title, lines }] - empty ones are left out.
+function showBannerWithDetails(elId, summary, sections, type) {
+  const banner = document.getElementById(elId);
+  banner.textContent = "";
+  banner.className = "banner show " + (type || "");
+  const close = el("button", { class: "banner-close", title: "Close", "aria-label": "Close", text: "×" });
+  close.addEventListener("click", () => hideBanner(elId));
+  banner.appendChild(el("div", { class: "banner-head" }, [el("span", { text: summary }), close]));
+  sections.filter((section) => section.lines.length).forEach((section) => {
+    banner.appendChild(el("details", { class: "banner-details" }, [
+      el("summary", { text: `${section.title} (${section.lines.length})` }),
+      el("div", { class: "banner-details-list", text: section.lines.join("\n") }),
+    ]));
+  });
+}
+
+// Result of a CSV import or bulk add: {successCount, errors, duplicates?}.
+function showImportResult(elId, result, verb) {
+  const duplicates = result.duplicates || [];
+  const errors = result.errors || [];
+  const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const parts = [`${count(result.successCount, "entry", "entries")} ${verb}.`];
+  if (duplicates.length) parts.push(`${count(duplicates.length, "possible duplicate", "possible duplicates")} skipped.`);
+  if (errors.length) parts.push(`${count(errors.length, "row", "rows")} could not be added.`);
+  const type = duplicates.length || (errors.length && result.successCount > 0) ? "warning"
+    : result.successCount > 0 ? "success" : "error";
+  showBannerWithDetails(elId, parts.join(" "), [
+    { title: "Possible duplicates skipped - check these by hand", lines: duplicates },
+    { title: "Rows that could not be added", lines: errors },
+  ], type);
+}
+
 function formatBeltName(belt) {
   if (!belt) return "";
   return belt.charAt(0).toUpperCase() + belt.slice(1).toLowerCase();
@@ -733,9 +767,7 @@ document.getElementById("importActiveFile").addEventListener("change", async (e)
       openRosterReview(result);
       return;
     }
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} imported.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("activeImportBanner", message, result.successCount > 0 ? "success" : "error");
+    showImportResult("activeImportBanner", result, "imported");
     if (result.successCount > 0) loadActiveNinjas();
   } catch (error) {
     showBanner("activeImportBanner", error.message, "error");
@@ -857,9 +889,10 @@ document.getElementById("rosterSubmit").addEventListener("click", async () => {
     let message = `${result.addedNinjas} Ninja${result.addedNinjas === 1 ? "" : "s"} added ` +
       `(${result.addedSessions} class${result.addedSessions === 1 ? "" : "es"}).`;
     if (result.markedJr) message += ` ${result.markedJr} existing class${result.markedJr === 1 ? "" : "es"} marked JR.`;
-    if (result.skipped.length) message += `\n\nAlready on the roster, left untouched: ${result.skipped.join(", ")}`;
     document.getElementById("rosterModalOverlay").classList.remove("open");
-    showBanner("activeImportBanner", message, result.addedNinjas > 0 || result.markedJr > 0 ? "success" : "error");
+    showBannerWithDetails("activeImportBanner", message, [
+      { title: "Already on the roster, left untouched", lines: result.skipped },
+    ], result.addedNinjas > 0 || result.markedJr > 0 ? "success" : "error");
     loadActiveNinjas();
   } catch (error) {
     showBanner("rosterError", error.message, "error");
@@ -1242,9 +1275,7 @@ document.getElementById("bulkActiveSubmit").addEventListener("click", async () =
 
   try {
     const result = await api("/api/active-ninjas/bulk", { method: "POST", body: JSON.stringify({ text }) });
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} added.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("bulkActiveBanner", message, result.successCount > 0 ? "success" : "error");
+    showImportResult("bulkActiveBanner", result, "added");
     if (result.successCount > 0) {
       document.getElementById("bulkActiveText").value = "";
       loadActiveNinjas();
@@ -1467,20 +1498,6 @@ document.getElementById("printTotemTagsBtn").addEventListener("click", async () 
 
 // ---- Import CSV (Leads) ----
 
-// Duplicates (same phone or email as a lead already in the list) are skipped by the import;
-// list them so staff can check them by hand.
-function showLeadImportResult(bannerId, result, verb) {
-  const duplicates = result.duplicates || [];
-  let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} ${verb}.`;
-  if (duplicates.length) {
-    message += `\n\n${duplicates.length} possible duplicate${duplicates.length === 1 ? " was" : "s were"} skipped:\n` +
-      duplicates.join("\n");
-  }
-  if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-  const type = duplicates.length ? "warning" : result.successCount > 0 ? "success" : "error";
-  showBanner(bannerId, message, type);
-}
-
 document.getElementById("importLeadsBtn").addEventListener("click", () => {
   document.getElementById("importLeadsFile").click();
 });
@@ -1492,7 +1509,7 @@ document.getElementById("importLeadsFile").addEventListener("change", async (e) 
 
   try {
     const result = await apiUpload("/api/leads/import", file);
-    showLeadImportResult("leadsImportBanner", result, "imported");
+    showImportResult("leadsImportBanner", result, "imported");
     if (result.successCount > 0) loadLeads();
   } catch (error) {
     showBanner("leadsImportBanner", error.message, "error");
@@ -1605,7 +1622,7 @@ document.getElementById("bulkLeadSubmit").addEventListener("click", async () => 
 
   try {
     const result = await api("/api/leads/bulk", { method: "POST", body: JSON.stringify({ text }) });
-    showLeadImportResult("bulkLeadBanner", result, "added");
+    showImportResult("bulkLeadBanner", result, "added");
     if (result.successCount > 0) {
       document.getElementById("bulkLeadText").value = "";
       loadLeads();
@@ -1754,9 +1771,7 @@ document.getElementById("importBeltsFile").addEventListener("change", async (e) 
 
   try {
     const result = await apiUpload("/api/belts/import", file);
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} imported.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("beltsImportBanner", message, result.successCount > 0 ? "success" : "error");
+    showImportResult("beltsImportBanner", result, "imported");
     if (result.successCount > 0) loadBelts();
   } catch (error) {
     showBanner("beltsImportBanner", error.message, "error");
@@ -1949,9 +1964,7 @@ document.getElementById("bulkBeltSubmit").addEventListener("click", async () => 
 
   try {
     const result = await api("/api/belts/bulk", { method: "POST", body: JSON.stringify({ text }) });
-    let message = `${result.successCount} ${result.successCount === 1 ? "entry" : "entries"} added.`;
-    if (result.errors.length) message += "\n\n" + result.errors.join("\n");
-    showBanner("bulkBeltBanner", message, result.successCount > 0 ? "success" : "error");
+    showImportResult("bulkBeltBanner", result, "added");
     if (result.successCount > 0) {
       document.getElementById("bulkBeltText").value = "";
       loadBelts();
