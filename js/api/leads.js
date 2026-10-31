@@ -3,6 +3,7 @@ import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine, todayISO } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
+import { sortLeadsByGbs } from "../lib/gbs_sort.js";
 
 export const LEAD_FIELDS = [
   "ninja_name", "parent_name", "phone_number", "email", "age",
@@ -105,14 +106,18 @@ export function insertLead(data) {
   return entryNumber;
 }
 
+// ?sort=gbs: upcoming GBS first (soonest at the top), then past, then no GBS date - see gbs_sort.js.
 route("GET", "/api/leads", ({ query }) => {
   const search = (query.q || "").trim();
+  let rows;
   if (search) {
     // Any column: name, parent, phone, email, comments, dates, entry #...
     const { where, params } = searchClause(["entry_number", ...LEAD_FIELDS, "lead_date"], search, "phone_number");
-    return conn.all(`SELECT * FROM leads WHERE ${where} ORDER BY entry_number`, params);
+    rows = conn.all(`SELECT * FROM leads WHERE ${where} ORDER BY entry_number`, params);
+  } else {
+    rows = conn.all("SELECT * FROM leads ORDER BY entry_number");
   }
-  return conn.all("SELECT * FROM leads ORDER BY entry_number");
+  return query.sort === "gbs" ? sortLeadsByGbs(rows, todayISO()) : rows;
 });
 
 // A single add warns (409) about a duplicate; the form resends with allow_duplicate to add it anyway.

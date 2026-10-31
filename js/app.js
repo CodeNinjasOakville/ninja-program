@@ -73,13 +73,13 @@ async function api(path, options) {
 }
 
 let latestVersionOffered = false;
-async function offerLatestVersion() {
+async function offerLatestVersion(whatFailed) {
   if (latestVersionOffered) return;
   latestVersionOffered = true;
   const ok = await confirmDialog(
     "Load the new version",
     "The app was updated, but this browser is still using some saved files from the old version, " +
-      "so that button couldn't work.\n\nLoad the new version now? It only takes a moment."
+      `so ${whatFailed || "that button couldn't work"}.\n\nLoad the new version now? It only takes a moment.`
   );
   if (ok) await loadLatestVersion();
   else latestVersionOffered = false;
@@ -1303,10 +1303,17 @@ function leadEmailKey(value) {
   return email.includes("@") ? email : "";
 }
 
+const LEAD_GROUP_TITLES = {
+  upcoming: "Upcoming GBS - soonest first",
+  past: "Past GBS - most recent first",
+  none: "No GBS date",
+};
+
 async function loadLeads() {
   const search = document.getElementById("leadsSearch").value;
-  const allRows = await api("/api/leads");
-  let rows = search.trim() ? await api("/api/leads?q=" + encodeURIComponent(search)) : allRows;
+  // Upcoming GBS first (soonest at the top), then past GBS (most recent first), then no GBS date.
+  const allRows = await api("/api/leads?sort=gbs");
+  let rows = search.trim() ? await api("/api/leads?sort=gbs&q=" + encodeURIComponent(search)) : allRows;
   const tbody = document.querySelector("#leadsTable tbody");
   tbody.innerHTML = "";
 
@@ -1345,7 +1352,22 @@ async function loadLeads() {
   const visibleIds = new Set(rows.map((r) => r.id));
   leadsSelected = new Set([...leadsSelected].filter((id) => visibleIds.has(id)));
 
+  // Old saved copies of the leads code ignore ?sort=gbs: show the list as-is and offer the update.
+  const sortedByGbs = allRows.every((r) => r.gbs_group);
+  if (!sortedByGbs) offerLatestVersion("the leads list couldn't be sorted by GBS date");
+  const groupCounts = {};
+  rows.forEach((r) => { groupCounts[r.gbs_group] = (groupCounts[r.gbs_group] || 0) + 1; });
+  const columnCount = document.querySelectorAll("#leadsTable thead th").length;
+  let lastGroup = null;
+
   rows.forEach((row) => {
+    // A heading above each group (not in the duplicates view, which is grouped by match instead).
+    if (sortedByGbs && !leadsDuplicatesOnly && row.gbs_group !== lastGroup) {
+      lastGroup = row.gbs_group;
+      const label = `${LEAD_GROUP_TITLES[row.gbs_group] || ""} (${groupCounts[row.gbs_group]})`;
+      tbody.appendChild(el("tr", { class: "leads-group-row" }, [el("td", { colspan: String(columnCount), text: label })]));
+    }
+
     const tr = el("tr");
     const dupPhone = isDupPhone(row);
     const dupEmail = isDupEmail(row);
