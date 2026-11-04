@@ -308,23 +308,174 @@ document.getElementById("tagBeltsClose").addEventListener("click", () => {
 });
 
 // ================================================================
-// TABS
+// PAGES: Ninjas, Belts & Rewards (3 parts), Leads, Settings (+ account)
 // ================================================================
 
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+const PAGE_PANELS = { ninjas: ["active"], rewards: ["rewards", "belts", "history"], leads: ["leads"], settings: ["settings", "security"] };
+let rewardsPart = "rewards"; // which part of Belts & Rewards is showing
 
-    // Leads and Belts change when the roster does (enrolled badges, renamed Ninjas), so they reload too.
-    if (btn.dataset.tab === "leads") loadLeads();
-    if (btn.dataset.tab === "belts") loadBelts();
-    if (btn.dataset.tab === "rewards") loadRewards();
-    if (btn.dataset.tab === "history") loadHistory();
-    if (btn.dataset.tab === "active") loadActiveNinjas();
+function loadPanel(panel) {
+  // Leads and Belts change when the roster does (enrolled badges, renamed Ninjas), so they reload too.
+  if (panel === "leads") loadLeads();
+  if (panel === "belts") loadBelts();
+  if (panel === "rewards") loadRewards();
+  if (panel === "history") loadHistory();
+  if (panel === "active") loadActiveNinjas();
+}
+
+function showPanels(panels) {
+  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.toggle("active", panels.includes(p.id.replace("tab-", ""))));
+  panels.forEach(loadPanel);
+}
+
+function showPage(page) {
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.group === page));
+  document.getElementById("rewardsSubtabs").style.display = page === "rewards" ? "flex" : "none";
+  showPanels(page === "rewards" ? [rewardsPart] : PAGE_PANELS[page]);
+}
+
+function showRewardsPart(part) {
+  rewardsPart = part;
+  document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.panel === part));
+  showPage("rewards");
+}
+
+document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => showPage(btn.dataset.group)));
+document.querySelectorAll(".subtab-btn").forEach((btn) => btn.addEventListener("click", () => showRewardsPart(btn.dataset.panel)));
+
+// Drop-down menus ("Print", "More"): close after picking something, or when clicking elsewhere.
+document.addEventListener("click", (e) => {
+  document.querySelectorAll("details.menu[open]").forEach((menu) => {
+    if (!menu.contains(e.target) || e.target.closest(".menu-items button")) menu.removeAttribute("open");
   });
+});
+
+// ================================================================
+// NINJA PROFILE: everything every page knows about one Ninja, in one window
+// ================================================================
+
+let profileNinja = null; // the data shown
+
+// A Ninja's name drawn as a link that opens their profile. Use uid when known, else the name.
+function ninjaLink(name, uid) {
+  const link = el("button", { class: "name-link", type: "button", title: "Open this Ninja's page", text: name || "" });
+  link.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openNinjaProfile({ uid, name });
+  });
+  return link;
+}
+
+function profileCard(title, children, emptyText) {
+  const card = el("div", { class: "profile-card" }, [el("h3", { text: title })]);
+  (children.length ? children : [el("div", { class: "muted", text: emptyText || "Nothing yet." })]).forEach((c) => card.appendChild(c));
+  return card;
+}
+
+const shortDate = (value) => String(value || "").slice(0, 10);
+
+async function openNinjaProfile({ uid, name }) {
+  let ninja;
+  try {
+    if (!uid) uid = (await api("/api/ninjas/find?name=" + encodeURIComponent(name || ""))).uid;
+    ninja = await api("/api/ninjas/" + encodeURIComponent(uid));
+  } catch (error) {
+    // e.g. a name on the Belts page for a child who was never on the roster
+    await confirmDialog("No Ninja page", error.message);
+    return;
+  }
+  profileNinja = ninja;
+  hideBanner("profileError");
+  document.getElementById("profileName").textContent = ninja.name;
+  const enrolled = ninja.classes.length > 0;
+  document.getElementById("profileSub").textContent =
+    (ninja.belt ? `${ninja.belt} belt` : "No belt yet") + (enrolled ? "" : " · not enrolled in any class right now");
+
+  // ---- What you can do
+  const actions = document.getElementById("profileActions");
+  actions.innerHTML = "";
+  const action = (text, primary, fn) => {
+    const b = el("button", { class: primary ? "btn-primary" : "btn-secondary", type: "button", text });
+    b.addEventListener("click", () => { closeNinjaProfile(); fn(); });
+    actions.appendChild(b);
+  };
+  const row = ninja.classes[0] ? { ...ninja.classes[0], name: ninja.name } : { name: ninja.name, ninja_uid: ninja.uid };
+  action("Edit (name, parent, classes, belt)", false, () => openActiveModal(row));
+  action("Record a belt-up", false, () => {
+    openBeltModal(null);
+    document.getElementById("bf_name").value = ninja.name;
+    const old = (settings.belt_options || []).find((b) => b.toLowerCase() === String(ninja.belt || "").toLowerCase());
+    if (old) document.getElementById("bf_old_belt").value = old;
+  });
+  if (ninja.owed) action("Give rewards", true, () => openGiveRewards(ninja.name, ninja.owed));
+  action("Print totem tag", false, () => generateTotemTagsByName([ninja.name], "activeImportBanner"));
+  if (ninja.classes.some((c) => c.is_jr) || ninja.notes.length) action("JR notes", false, () => openJrNotes(ninja.name));
+
+  // ---- What we know
+  const body = document.getElementById("profileBody");
+  body.innerHTML = "";
+
+  const family = [];
+  if (ninja.family) {
+    const f = ninja.family;
+    if (f.name) family.push(el("div", { class: "profile-big", text: f.name }));
+    if (f.email) family.push(el("div", {}, [el("a", { href: "mailto:" + f.email, text: f.email })]));
+    if (f.phone) family.push(el("div", {}, [el("a", { href: "tel:" + String(f.phone).replace(/[^\d+]/g, ""), text: f.phone })]));
+    if (ninja.siblings.length) {
+      const sibs = el("div", { class: "profile-line" }, [el("span", { class: "muted", text: "Brothers / sisters: " })]);
+      ninja.siblings.forEach((s, i) => {
+        if (i) sibs.appendChild(document.createTextNode(", "));
+        sibs.appendChild(ninjaLink(s.name, s.uid));
+      });
+      family.push(sibs);
+    }
+  }
+  ninja.leads.forEach((l) => family.push(el("div", { class: "muted profile-line",
+    text: `Came from lead #${l.entry_number}` + (l.gbs_date ? ` (GBS ${l.gbs_date})` : "") })));
+  body.appendChild(profileCard("Parent / family", family,
+    "No parent details yet. Press Edit to add them (importing from MyStudio fills them in too)."));
+
+  const classes = el("div", { class: "sessions-cell" });
+  sortSessions(ninja.classes).forEach((c) => classes.appendChild(sessionPill(c)));
+  body.appendChild(profileCard("Classes", ninja.classes.length ? [classes] : [], "Not in any class right now."));
+
+  const belts = ninja.belts.slice().reverse().map((b) => el("div", { class: "profile-line", text:
+    (b.old_belt ? `${b.old_belt} → ${b.new_belt}` : `Started at ${b.new_belt}`) + `   ${shortDate(b.created_at)}` }));
+  body.appendChild(profileCard("Belt history", belts));
+
+  const owed = [];
+  if (ninja.owed) {
+    [["ninja_bucks", "Ninja Buck", "Ninja Bucks"], ["prints", "3D print", "3D prints"], ["certificates", "certificate", "certificates"],
+      ["belts", "new belt to hand out", "new belts to hand out"]]
+      .forEach(([key, one, many]) => {
+        const n = ninja.owed[key + "_remaining"];
+        if (n) owed.push(el("div", { class: "profile-line" }, [el("b", { text: String(n) }), document.createTextNode(" " + (n === 1 ? one : many))]));
+      });
+  } else {
+    owed.push(el("div", { class: "muted", text: ninja.levels ? "All caught up." : "No belt-ups yet." }));
+  }
+  body.appendChild(profileCard("Rewards owed", owed));
+
+  const given = ninja.given.slice(0, 8).map((r) => el("div", { class: "profile-line",
+    text: `${shortDate(r.date)}  ${r.amount} × ${r.reward_type}` + (r.details ? ` (${r.details})` : "") }));
+  if (ninja.given.length > 8) given.push(el("div", { class: "muted", text: `and ${ninja.given.length - 8} more (Belts & Rewards → Rewards given)` }));
+  body.appendChild(profileCard("Rewards given", given));
+
+  if (ninja.notes.length || ninja.classes.some((c) => c.is_jr)) {
+    const notes = ninja.notes.slice(0, 3).map((n) => el("div", { class: "profile-line",
+      text: `${shortDate(n.created_at)}  ${n.note}` + (n.author ? ` — ${n.author}` : "") }));
+    body.appendChild(profileCard("JR notes (what they're working on)", notes));
+  }
+
+  document.getElementById("ninjaProfileOverlay").classList.add("open");
+}
+
+function closeNinjaProfile() {
+  document.getElementById("ninjaProfileOverlay").classList.remove("open");
+}
+document.getElementById("profileClose").addEventListener("click", closeNinjaProfile);
+document.getElementById("ninjaProfileOverlay").addEventListener("click", (e) => {
+  if (e.target.id === "ninjaProfileOverlay") closeNinjaProfile(); // click outside the window
 });
 
 // ================================================================
@@ -473,7 +624,7 @@ function renderActiveSchedule(rows, allRows) {
             });
             if (parentLine(row)) chip.title = "Parent: " + parentLine(row);
             const label = el("span", { class: "chip-name" });
-            label.appendChild(el("span", { text: row.name }));
+            label.appendChild(ninjaLink(row.name, row.ninja_uid));
             if (row.is_ai) label.appendChild(el("span", { class: "ai-badge", text: "AI" }));
             if (row.is_jr) label.appendChild(el("span", { class: "jr-badge", text: "JR" }));
 
@@ -528,12 +679,12 @@ function renderActiveSchedule(rows, allRows) {
   });
 }
 
-// ---- Belts shared with the Belts tab (rules in js/lib/belt_match.js) ----
+// ---- Belts shared with the Belt-ups list (rules in js/lib/belt_match.js) ----
 
 let beltQuestions = [];         // Belts-tab names that match more than one Active Ninja
 let beltQuestionsShown = false; // the chooser opens by itself once; after "Later" only the banner shows
 
-// Fills blank Active Ninja belts from the Belts tab and asks about names that could be several Ninjas.
+// Fills blank Active Ninja belts from the Belt-ups list and asks about names that could be several Ninjas.
 async function syncActiveBelts(choices) {
   let result;
   try {
@@ -544,12 +695,12 @@ async function syncActiveBelts(choices) {
   beltQuestions = result.questions;
   document.getElementById("activeBeltBanner").style.display = beltQuestions.length ? "flex" : "none";
   document.getElementById("activeBeltBannerText").textContent =
-    `${beltQuestions.length} name${beltQuestions.length === 1 ? "" : "s"} in the Belts tab match more than one Ninja here. ` +
+    `${beltQuestions.length} name${beltQuestions.length === 1 ? "" : "s"} in the Belt-ups list match more than one Ninja here. ` +
     "Choose who each belt belongs to.";
   if (result.filled.length) {
     showBanner(
       "activeImportBanner",
-      "Belts updated from the Belts tab: " +
+      "Belts updated from the Belt-ups list: " +
         result.filled.map((f) => (f.was ? `${f.name} (${f.was} \u2192 ${f.belt})` : `${f.name} (${f.belt})`)).join(", "),
       "success"
     );
@@ -626,7 +777,7 @@ function openBeltMatchModal() {
   const list = document.getElementById("beltMatchList");
   list.innerHTML = "";
   beltQuestions.forEach((q, i) => {
-    list.appendChild(el("div", { class: "review-head", text: `"${q.belt_name}" - ${q.belt} belt in the Belts tab` }));
+    list.appendChild(el("div", { class: "review-head", text: `"${q.belt_name}" - ${q.belt} belt in the Belt-ups list` }));
     const options = el("div", { class: "review-list" });
     const choice = (value, text) =>
       el("label", { class: "review-row" }, [el("input", { type: "radio", name: "beltMatch" + i, value }), el("span", { text })]);
@@ -699,7 +850,7 @@ async function loadActiveNinjas(options) {
     });
     tr.appendChild(el("td", {}, [checkbox]));
 
-    tr.appendChild(el("td", { class: "person-name", text: person.name }));
+    tr.appendChild(el("td", { class: "person-name" }, [ninjaLink(person.name, (person.sessions[0] || {}).ninja_uid)]));
     const first = person.sessions[0] || {};
     const parentCell = el("td", { class: "parent-cell" });
     if (first.family_name || first.family_email || first.family_phone) {
@@ -799,7 +950,7 @@ document.getElementById("deleteAllActiveBtn").addEventListener("click", async ()
   if (!ok) return;
   const ok2 = await confirmDialog(
     "Are you REALLY sure?",
-    "Last check - this deletes everything in the Active Ninjas table. Continue?"
+    "Last check - this deletes everything in the Ninjas pagele. Continue?"
   );
   if (!ok2) return;
   await api("/api/active-ninjas/bulk-delete", { method: "POST", body: JSON.stringify({ all: true }) });
@@ -988,7 +1139,7 @@ function rosterUpdateRow(update) {
 function beltChangeView(b) {
   if (!b) return null;
   if (b.kind === "up") {
-    return { checkable: true, checked: true, text: `Belted up: ${b.from} \u2192 ${b.to} (+${b.levels} level${b.levels === 1 ? "" : "s"}, recorded on the Belts tab)` };
+    return { checkable: true, checked: true, text: `Belted up: ${b.from} \u2192 ${b.to} (+${b.levels} level${b.levels === 1 ? "" : "s"}, recorded on the Belt-ups list)` };
   }
   if (b.kind === "start") return { checkable: true, checked: true, text: `Belt: ${b.to} (first belt on file, no rewards)` };
   if (b.kind === "set") return { checkable: true, checked: true, text: `Belt: ${b.from} \u2192 ${b.to}` };
@@ -1077,7 +1228,7 @@ function openRosterReview(result, bannerId) {
   }
 
   document.getElementById("rosterSummary").textContent = result.kind === "ranks"
-    ? `${plural(inFile, "Ninja")} found in this belt list. Higher belts are recorded as belt-ups on the Belts tab (rewards follow).${notFoundText} Nothing changes until you press the button.`
+    ? `${plural(inFile, "Ninja")} found in this belt list. Higher belts are recorded as belt-ups on the Belt-ups list (rewards follow).${notFoundText} Nothing changes until you press the button.`
     : `${plural(inFile, "Ninja")} in this file` + (result.days && result.days.length ? ` (${result.days.join(", ")})` : "") +
       ". Ninjas are matched by name and by parent email/phone. Nothing changes until you press the button.";
 
@@ -1135,7 +1286,7 @@ document.getElementById("rosterSubmit").addEventListener("click", async () => {
     if (r.beltsCorrected) parts.push(`${plural(r.beltsCorrected, "belt")} corrected`);
     document.getElementById("rosterModalOverlay").classList.remove("open");
     showBannerWithDetails(rosterBanner, (parts.join(", ") || "Nothing changed") + ".", [
-      { title: "Belted up (see the Belts tab and Rewards)", lines: ups },
+      { title: "Belted up (see the Belt-ups list and Rewards)", lines: ups },
       { title: "Left as they were", lines: r.skipped },
     ], parts.length ? "success" : "error");
     loadActiveNinjas();
@@ -1458,7 +1609,7 @@ function updateBeltUpOption() {
   document.getElementById("af_belt_up_row").style.display = higher ? "flex" : "none";
   if (higher) {
     document.getElementById("af_belt_up_text").textContent =
-      `Record ${editingBelt} \u2192 ${chosen} as a belt-up on the Belts tab (Rewards will count it). Untick to only fix a mistake.`;
+      `Record ${editingBelt} \u2192 ${chosen} as a belt-up on the Belt-ups list (Rewards will count it). Untick to only fix a mistake.`;
   }
 }
 document.getElementById("af_belt").addEventListener("change", updateBeltUpOption);
@@ -1470,7 +1621,7 @@ function fillBeltSelect(current) {
   select.innerHTML = "";
   const belts = (settings.belt_options || []).map((b) => formatBeltName(String(b).trim())).filter(Boolean);
   if (current && !belts.some((b) => b.toLowerCase() === current.toLowerCase())) belts.push(current);
-  select.appendChild(el("option", { value: "", text: "Not set (use the Belts tab)" }));
+  select.appendChild(el("option", { value: "", text: "Not set (use the Belt-ups list)" }));
   belts.forEach((b) => select.appendChild(el("option", { value: b, text: b })));
   select.value = belts.find((b) => b.toLowerCase() === current.toLowerCase()) || "";
   updateBeltUpOption();
@@ -1698,7 +1849,9 @@ async function loadLeads() {
     ].forEach((value, i) => {
       const td = el("td", { text: value || "", ...(i === 9 ? { class: "comments-cell" } : {}) });
       if (i === 1 && row.enrolled) {
-        td.appendChild(el("span", { class: "enrolled-badge", title: "This lead is now on the Active Ninjas roster", text: "Enrolled" }));
+        const badge = el("button", { class: "enrolled-badge", type: "button", title: "This child is now a Ninja - open their page", text: "Enrolled" });
+        badge.addEventListener("click", () => openNinjaProfile({ uid: row.ninja_uid }));
+        td.appendChild(badge);
       }
       if ((i === 3 && dupPhone) || (i === 4 && dupEmail)) {
         td.classList.add("dup-cell");
@@ -1996,7 +2149,8 @@ async function loadBelts() {
     });
     tr.appendChild(el("td", {}, [checkbox]));
 
-    [row.name, row.old_belt, row.new_belt, (row.created_at || "").slice(0, 10)]
+    tr.appendChild(el("td", {}, [ninjaLink(row.name, row.ninja_uid)]));
+    [row.old_belt, row.new_belt, (row.created_at || "").slice(0, 10)]
       .forEach((value) => tr.appendChild(el("td", { text: value || "" })));
 
     const actions = [];
@@ -2075,7 +2229,7 @@ document.getElementById("deleteAllBeltsBtn").addEventListener("click", async () 
   if (!ok) return;
   const ok2 = await confirmDialog(
     "Are you REALLY sure?",
-    "Last check - this deletes everything in the Belts table. Continue?"
+    "Last check - this deletes everything in the Belt-ups listle. Continue?"
   );
   if (!ok2) return;
   await api("/api/belts/bulk-delete", { method: "POST", body: JSON.stringify({ all: true }) });
@@ -2247,7 +2401,7 @@ function openBeltCertModal(row) {
 }
 
 // Every belt a Ninja has completed (and so has a certificate for), across all their belt entries,
-// plus their name as written on the Belts tab (what goes on the certificate).
+// plus their name as written on the Belt-ups list (what goes on the certificate).
 async function completedBeltsForNinja(name) {
   const entries = (await api("/api/belts"))
     .filter((row) => personKey(row.name) === personKey(name))
@@ -2380,7 +2534,7 @@ async function loadRewards() {
 
   rows.forEach((row) => {
     const tr = el("tr");
-    tr.appendChild(el("td", { text: row.name }));
+    tr.appendChild(el("td", {}, [ninjaLink(row.name)]));
     tr.appendChild(el("td", { text: row.progression }));
     REWARD_COLUMNS.forEach(([key]) => {
       tr.appendChild(el("td", { text: String(row[key]) }));
@@ -2551,7 +2705,9 @@ async function loadHistory() {
 
   rows.forEach((row) => {
     const tr = el("tr");
-    [row.date, row.name, row.reward_type, row.amount, row.details, row.entry_type]
+    tr.appendChild(el("td", { text: row.date || "" }));
+    tr.appendChild(el("td", {}, [ninjaLink(row.name, row.ninja_uid)]));
+    [row.reward_type, row.amount, row.details, row.entry_type]
       .forEach((value) => tr.appendChild(el("td", { text: value || "" })));
 
     const delBtn = el("button", { class: "btn-icon", title: "Undo this transaction", text: "\u2716" });
@@ -2631,8 +2787,8 @@ document.getElementById("saveSettingsBtn").addEventListener("click", async () =>
 async function init() {
   settings = await api("/api/settings");
   renderSettingsForm();
-  loadLeads();
-  loadBelts();
+  const current = document.querySelector(".tab-btn.active");
+  showPage(current ? current.dataset.group : "ninjas");
 }
 
 init();
@@ -2644,5 +2800,4 @@ window.ninjaReload = async function () {
   beltsSelected.clear();
   activeSelected.clear();
   await init();
-  if (document.getElementById("tab-active").classList.contains("active")) loadActiveNinjas();
 };

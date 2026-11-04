@@ -195,6 +195,15 @@ const flatResult = await call("POST", "/api/active-ninjas/import", undefined, up
 check("Name/Day/Time Slot file with a Belt column still adds to the roster, with the belt",
   flatResult.successCount === 1 && beltOf("Zara Fox") === "Green", [flatResult, ninjaOf("Zara Fox")]);
 
+// ---- The Ninja profile window gets everything in one call.
+const found = await call("GET", "/api/ninjas/find?name=" + encodeURIComponent("mia lee-wong"));
+const profile = await call("GET", `/api/ninjas/${found.uid}`);
+check("profile: belt-ups, rewards owed and the family", profile.belts.length >= 2 && profile.owed && profile.owed.ninja_bucks_remaining > 0 &&
+  profile.levels >= 1 && profile.family && profile.family.name === "Grace Lee", profile);
+let notFoundErr = null;
+try { await call("GET", "/api/ninjas/find?name=Nobody%20Here"); } catch (e) { notFoundErr = e; }
+check("profile lookup for a name that isn't a Ninja says so", notFoundErr && notFoundErr.status === 404);
+
 // ---- If linking ever fails, the lists still load.
 const leadCount = conn.get("SELECT COUNT(*) AS c FROM leads").c;
 conn.run("DROP TABLE ninjas");

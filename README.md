@@ -2,8 +2,9 @@
 
 https://codeninjasoakville.github.io/ninja-program/
 
-The same Ninja Program screens as before (Leads, Belts, Active Ninjas, Rewards, Reward History, Settings,
-certificates, totem tags), now usable by your whole team from anywhere.
+The app has four pages: **Ninjas** (the roster - click any name for that Ninja's page with parent, classes, belts, rewards and notes),
+**Belts & Rewards** (rewards owed, belt-ups, rewards given), **Leads** and **Settings**. It also prints
+certificates and totem tags, and your whole team can use it from anywhere.
 
 - **The website** is static files on **GitHub Pages** (free).
 - **The shared data** lives in a **Supabase** database (free plan) behind **per-person email + password logins**.

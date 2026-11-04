@@ -71,7 +71,7 @@ check("nothing readable by an anonymous visitor", await (async () => { const r =
 
 // ------------------------------------------------------------------ 2. import old data (admin)
 console.log("\n=== 2. Import the old database");
-await A.page.click('.tab-btn[data-tab="security"]');
+await A.page.click('.tab-btn[data-group="settings"]');
 await A.page.click("button:has-text('Replace ALL team data')");
 await dialog(A.page, { 0: { file: LEGACY_DB }, 1: "REPLACE" }, "Replace everything");
 await A.page.waitForSelector(".banner.success.show", { timeout: 120000 });
@@ -92,11 +92,11 @@ check("teammate sees active ninjas", await count(B.page, "/api/active-ninjas") =
 await B.page.waitForFunction(() => document.getElementById("saveStatus").textContent === "Synced");
 
 console.log("\n=== 4. Live changes between the two");
-await A.page.click('.tab-btn[data-tab="leads"]');
+await A.page.click('.tab-btn[data-group="leads"]');
 await A.page.evaluate(() => window.ninjaApi("POST", "/api/leads", { ninja_name: "Zelda From A", parent_name: "Pat" }));
 await B.page.waitForFunction(async () => (await window.ninjaApi("GET", "/api/leads?q=zelda")).length === 1, null, { timeout: 30000 });
 check("a lead added by A reaches B automatically", true);
-await B.page.click('.tab-btn[data-tab="leads"]');
+await B.page.click('.tab-btn[data-group="leads"]');
 await B.page.waitForFunction(() => document.body.innerText.includes("Zelda From A"), null, { timeout: 15000 });
 check("B's screen shows it without reloading", true);
 await B.page.evaluate(() => window.ninjaApi("POST", "/api/leads", { ninja_name: "Yuri From B" }));
@@ -126,7 +126,7 @@ check("not ticking 'keep me signed in' keeps the login out of long-term storage"
 await A.page.reload();
 await A.page.waitForSelector("#app", { state: "visible", timeout: 60000 });
 check("a reload in the same tab stays signed in", true);
-await B.page.click('.tab-btn[data-tab="security"]');
+await B.page.click('.tab-btn[data-group="settings"]');
 await B.page.click("#lockNowBtn");
 await B.page.waitForSelector("#loginEmail");
 check("sign out returns to the sign-in screen", true);

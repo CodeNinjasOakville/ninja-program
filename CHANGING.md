@@ -4,7 +4,7 @@ Plain JavaScript modules, no build step: edit a file, commit, refresh. Run `npm 
 
 ## Map
 - `index.html`, `css/style.css` (original look), `css/lock.css` (sign-in, account tab)
-- `js/app.js` — the original screens. They call `window.ninjaApi(method, "/api/...")` exactly like the old fetch calls.
+- `js/app.js` — the screens. Top of the file: the 4 pages (`PAGE_PANELS` / `showPage`; Belts & Rewards has 3 parts) and the Ninja profile window (`openNinjaProfile`, data from `GET /api/ninjas/:uid`; `ninjaLink()` makes any name open it). Rarely used / risky buttons live in the "More" drop-down menus in `index.html`. They call `window.ninjaApi(method, "/api/...")` exactly like the old fetch calls.
 - `js/api/*.js` — the old Flask routes with the same URLs and JSON (`leads`, `belts`, `active`, `rewards`, `settings`); `router.js` has `route(method, pattern, handler)`. They run against a local SQLite copy.
 - `js/lib/*` — helpers ported from Python (CSV, schedule import, reward rules); `ninjas.js` = Ninja + family records and how every sheet links to them
 - `js/pdf/*` — certificates and totem tags (pdf-lib). `data/certificate_layout.json` + `assets/certificate_template.pdf`

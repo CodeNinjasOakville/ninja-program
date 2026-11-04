@@ -53,7 +53,7 @@ async function unlockWith(pw, p = page) {
   await p.click("button:has-text('Unlock')");
 }
 const leadRows = (p = page) => p.locator("#leadsTable tbody tr").count();
-async function openSecurity(p = page) { await p.click('.tab-btn[data-tab="security"]'); await p.waitForSelector("#securityRoot .sec-card"); }
+async function openSecurity(p = page) { await p.click('.tab-btn[data-group="settings"]'); await p.waitForSelector("#securityRoot .sec-card"); }
 async function dialogFill(values, submitText, p = page) {
   const inputs = p.locator(".modal-overlay.open form input, .modal-overlay.open form select");
   for (const [i, v] of Object.entries(values)) {
@@ -271,7 +271,7 @@ await page.click("button:has-text('Replace data with an old ninja_system.db')");
 await dialogFill({ 0: { file: LEGACY_DB } }, "Replace my data");
 await page.waitForFunction(() => /Your data was replaced/.test(document.querySelector("#securityRoot .banner")?.textContent || ""), null, { timeout: 30000 });
 check("legacy replace reports success", true);
-await page.click('.tab-btn[data-tab="leads"]');
+await page.click('.tab-btn[data-group="leads"]');
 await page.waitForFunction((n) => document.querySelectorAll("#leadsTable tbody tr").length === n, EXPECT.leads);
 check("legacy replace: screens reload with the replaced data (Zebra gone)", true);
 await waitSaved();
@@ -284,7 +284,7 @@ check("a non-database file is refused", /not a SQLite/i.test(await page.locator(
 check("data intact after the refused import", (await apiCount(page, "/api/belts")) === EXPECT.belts);
 
 console.log("\n=== 7. PDFs (totem tags + certificates)");
-await page.click('.tab-btn[data-tab="leads"]');
+await page.click('.tab-btn[data-group="leads"]');
 await page.waitForSelector("#leadsTable tbody tr");
 const cbs = page.locator("#leadsTable tbody tr input[type=checkbox]");
 for (let i = 0; i < 5; i++) await cbs.nth(i).check();
@@ -293,7 +293,7 @@ const tagPath = path.join(OUT, "browser_totem_tags.pdf");
 await tagDl.saveAs(tagPath);
 check("totem tag PDF downloaded", tagDl.suggestedFilename() === "Ninja Totem Tags.pdf" && fs.statSync(tagPath).size > 1000, tagDl.suggestedFilename());
 
-await page.click('.tab-btn[data-tab="rewards"]');
+await page.click('.tab-btn[data-group="rewards"]');
 await page.waitForSelector("#rewardsTable tbody tr");
 const [certDl] = await Promise.all([page.waitForEvent("download", { timeout: 60000 }), page.click("#generateAllCertsBtn")]);
 const certPath = path.join(OUT, "browser_certificates.pdf");

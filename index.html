@@ -27,32 +27,43 @@
 
     <nav id="tabs">
       <div class="brand">Ninja Program</div>
-      <button class="tab-btn active" data-tab="leads">Leads</button>
-      <button class="tab-btn" data-tab="belts">Belts</button>
-      <button class="tab-btn" data-tab="active">Active Ninjas</button>
-      <button class="tab-btn" data-tab="rewards">Rewards</button>
-      <button class="tab-btn" data-tab="history">Reward History</button>
-      <button class="tab-btn" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="security">Account</button>
+      <button class="tab-btn active" data-group="ninjas">Ninjas</button>
+      <button class="tab-btn" data-group="rewards">Belts &amp; Rewards</button>
+      <button class="tab-btn" data-group="leads">Leads</button>
+      <button class="tab-btn" data-group="settings">Settings</button>
       <span class="spacer"></span>
       <span id="saveStatus" class="save-status" role="status" aria-live="polite"></span>
       <button id="lockNowBtn" class="btn-secondary lock-btn" title="Sign out">Sign out</button>
     </nav>
 
+    <!-- The three parts of the Belts & Rewards page -->
+    <div class="subtabs" id="rewardsSubtabs" style="display:none;">
+      <button class="subtab-btn active" data-panel="rewards">Rewards owed</button>
+      <button class="subtab-btn" data-panel="belts">Belt-ups</button>
+      <button class="subtab-btn" data-panel="history">Rewards given</button>
+    </div>
+
     <!-- ============ LEADS ============ -->
-    <section id="tab-leads" class="tab-panel active">
+    <section id="tab-leads" class="tab-panel">
+      <p class="page-intro">Families who asked about Code Ninjas and their GBS (Get Building Session). A green
+        <span class="enrolled-badge">Enrolled</span> means that child is now a Ninja - click it to open their page.</p>
       <div class="panel-header">
-        <input type="text" id="leadsSearch" placeholder="Search anything: name, phone, email, comments&hellip;">
+        <input type="text" id="leadsSearch" placeholder="Search name, phone, email, comments&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="leadsSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedLeadsBtn" style="display:none;">Delete Selected</button>
-        <button class="btn-danger-outline" id="deleteAllLeadsBtn">Delete All</button>
+        <button class="btn-primary" id="addLeadBtn">+ Add a Lead</button>
         <button class="btn-secondary" id="showDuplicatesBtn" title="Show only leads that share a phone number or email">Show Duplicates</button>
-        <button class="btn-secondary" id="printTotemTagsBtn">Print Totem Tags</button>
-        <button class="btn-secondary" id="importLeadsBtn">Import CSV</button>
+        <details class="menu">
+          <summary class="btn-secondary">More &#9662;</summary>
+          <div class="menu-items">
+            <button id="printTotemTagsBtn">Print Totem Tags</button>
+            <button id="importLeadsBtn">Import leads from a CSV file</button>
+            <button id="bulkAddLeadsBtn">Paste many leads at once</button>
+            <button class="menu-danger" id="deleteAllLeadsBtn">Delete ALL leads&hellip;</button>
+          </div>
+        </details>
         <input type="file" id="importLeadsFile" accept=".csv" style="display:none;">
-        <button class="btn-secondary" id="bulkAddLeadsBtn">Bulk Add</button>
-        <button class="btn-primary" id="addLeadBtn">+ Add Lead</button>
       </div>
       <div class="banner" id="leadsImportBanner"></div>
       <div class="table-wrap">
@@ -75,17 +86,24 @@
 
     <!-- ============ BELTS ============ -->
     <section id="tab-belts" class="tab-panel">
+      <p class="page-intro">Every belt-up, newest first. Recording a belt-up here moves the Ninja up to that belt
+        and adds their rewards to "Rewards owed". A row with no old belt is just their starting belt (no rewards).</p>
       <div class="panel-header">
         <input type="text" id="beltsSearch" placeholder="Search name, belt, or date&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="beltsSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedBeltsBtn" style="display:none;">Delete Selected</button>
-        <button class="btn-danger-outline" id="deleteAllBeltsBtn">Delete All</button>
-        <button class="btn-secondary" id="printTotemTagsBeltsBtn">Print Totem Tags</button>
-        <button class="btn-secondary" id="importBeltsBtn">Import CSV</button>
+        <button class="btn-primary" id="addBeltBtn">+ Record a Belt-up</button>
+        <details class="menu">
+          <summary class="btn-secondary">More &#9662;</summary>
+          <div class="menu-items">
+            <button id="printTotemTagsBeltsBtn">Print Totem Tags</button>
+            <button id="importBeltsBtn">Import belts from a CSV file</button>
+            <button id="bulkAddBeltsBtn">Paste many belt-ups at once</button>
+            <button class="menu-danger" id="deleteAllBeltsBtn">Delete ALL belt-ups&hellip;</button>
+          </div>
+        </details>
         <input type="file" id="importBeltsFile" accept=".csv" style="display:none;">
-        <button class="btn-secondary" id="bulkAddBeltsBtn">Bulk Add</button>
-        <button class="btn-primary" id="addBeltBtn">+ Add Belt Entry</button>
       </div>
       <div class="banner" id="beltsImportBanner"></div>
       <div class="table-wrap">
@@ -103,32 +121,41 @@
     </section>
 
     <!-- ============ ACTIVE NINJAS ============ -->
-    <section id="tab-active" class="tab-panel">
+    <section id="tab-active" class="tab-panel active">
+      <p class="page-intro">Everyone enrolled now. <b>Click any name</b> to see everything about that Ninja: parent,
+        classes, belt, rewards and notes.</p>
       <div class="panel-header">
         <input type="text" id="activeSearch" placeholder="Search name, parent, day, time, &quot;AI&quot; or &quot;JR&quot;&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="activeSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedActiveBtn" style="display:none;">Delete Selected</button>
-        <button class="btn-danger-outline" id="deleteAllActiveBtn">Delete All</button>
-        <button class="btn-secondary" id="printTotemTagsActiveBtn">Print Totem Tags</button>
-        <button class="btn-secondary" id="printBeltListActiveBtn" title="A page with each Ninja's name and belt (ticked Ninjas, or everyone shown)">Print Belt List</button>
-        <button class="btn-secondary" id="importActiveBtn">Import CSV</button>
+        <button class="btn-primary" id="addActiveBtn">+ Add a Ninja</button>
+        <button class="btn-secondary" id="importActiveBtn" title="The MyStudio class schedule export (Class schedule &rarr; Export &rarr; next 14 days)">Import from MyStudio</button>
+        <details class="menu">
+          <summary class="btn-secondary">Print &#9662;</summary>
+          <div class="menu-items">
+            <button id="printTotemTagsActiveBtn">Totem tags</button>
+            <button id="printBeltListActiveBtn" title="Ticked Ninjas, or everyone shown">Belt list (names and belts)</button>
+          </div>
+        </details>
+        <details class="menu">
+          <summary class="btn-secondary">More &#9662;</summary>
+          <div class="menu-items">
+            <button id="bulkAddActiveBtn">Paste many Ninjas at once</button>
+            <button class="menu-danger" id="deleteAllActiveBtn">Delete the WHOLE roster&hellip;</button>
+          </div>
+        </details>
         <input type="file" id="importActiveFile" accept=".csv" style="display:none;">
-        <button class="btn-secondary" id="bulkAddActiveBtn">Bulk Add</button>
-        <button class="btn-primary" id="addActiveBtn">+ Add Ninja</button>
       </div>
-      <p class="muted">
-        CSV import accepts a flat Name/Day/Time Slot/AI file, the
-        wide weekly "Session Schedule" export straight from the spreadsheet, or the
-        MyStudio "All classes schedule" export (Class schedule &rarr; Export &rarr; next 14 days) -
-        it's auto-detected. The MyStudio export saves each Ninja's parent (the customer) and
-        compares the file with the roster - new Ninjas, changed classes, Ninjas who are no longer
-        in it, and belt-ups if the file has a belt / rank column - and shows you everything first.
-        A MyStudio list of names and belts can be imported here or on the Belts tab. A session marked <span class="ai-badge">AI</span> is an
-        Artificial Intelligence class; the Ninja stays in the list, just flagged.
-        A <span class="jr-badge">JR</span> session is a JR (ScratchJr) class - the
-        <b>JR Ninjas</b> view lists them with notes on what each one is working on.
-      </p>
+      <details class="help">
+        <summary>How importing from MyStudio works</summary>
+        <p>In MyStudio: <b>Class schedule &rarr; Export &rarr; next 14 days</b>, then press <b>Import from MyStudio</b> here
+          and pick that file. Nothing changes straight away: a window lists new Ninjas (with their parent), class
+          changes, and Ninjas who are no longer in the file, and you tick what to apply.</p>
+        <p><span class="ai-badge">AI</span> marks an Artificial Intelligence class and <span class="jr-badge">JR</span> a
+          JR (ScratchJr) class. The <b>JR Ninjas</b> view lists JR Ninjas with notes on what each one is working on.
+          Older spreadsheet files (Name / Day / Time Slot, or the weekly Session Schedule) also work.</p>
+      </details>
       <div class="banner" id="activeImportBanner"></div>
       <div class="banner warning" id="activeBeltBanner" style="display:none;">
         <span id="activeBeltBannerText"></span>
@@ -162,14 +189,20 @@
 
     <!-- ============ REWARDS ============ -->
     <section id="tab-rewards" class="tab-panel">
+      <p class="page-intro">Who still has rewards coming for their belt-ups. Press <b>&#127873;</b> on a row (or click the
+        name) to hand them out - it is recorded under "Rewards given".</p>
       <div class="panel-header">
-        <h2 class="panel-title">Outstanding Rewards</h2>
         <input type="text" id="rewardsSearch" class="panel-search" placeholder="Search&hellip;">
         <div class="spacer"></div>
-        <button class="btn-secondary" id="refreshRewardsBtn">Refresh</button>
-        <button class="btn-secondary" id="printTotemTagsRewardsBtn">Print Totem Tags</button>
-        <button class="btn-secondary" id="generateAllCertsBtn">Generate All Certificates</button>
         <button class="btn-primary" id="giveRewardsBtn">Give Rewards</button>
+        <details class="menu">
+          <summary class="btn-secondary">Print &#9662;</summary>
+          <div class="menu-items">
+            <button id="generateAllCertsBtn">All certificates owed</button>
+            <button id="printTotemTagsRewardsBtn">Totem tags</button>
+          </div>
+        </details>
+        <button class="btn-secondary" id="refreshRewardsBtn" style="display:none;">Refresh</button>
       </div>
       <div class="banner" id="rewardsBanner"></div>
 
@@ -192,12 +225,18 @@
 
     <!-- ============ REWARD HISTORY ============ -->
     <section id="tab-history" class="tab-panel">
+      <p class="page-intro">Every reward handed out and certificate printed, newest first. &#10006; undoes one
+        (it becomes owed again).</p>
       <div class="panel-header">
-        <h2 class="panel-title">Reward History (Receipts)</h2>
         <input type="text" id="historySearch" class="panel-search" placeholder="Search name, reward, date, details&hellip;">
         <div class="spacer"></div>
-        <button class="btn-danger-outline" id="clearCertificatesBtn">Remove All Certificates</button>
-        <button class="btn-secondary" id="refreshHistoryBtn">Refresh</button>
+        <details class="menu">
+          <summary class="btn-secondary">More &#9662;</summary>
+          <div class="menu-items">
+            <button class="menu-danger" id="clearCertificatesBtn">Remove ALL certificate records&hellip;</button>
+          </div>
+        </details>
+        <button class="btn-secondary" id="refreshHistoryBtn" style="display:none;">Refresh</button>
       </div>
       <div class="banner" id="historyBanner"></div>
       <div class="table-wrap">
@@ -214,10 +253,10 @@
     <!-- ============ SETTINGS ============ -->
     <section id="tab-settings" class="tab-panel">
       <div class="settings-card">
-        <h2>Dropdown Options</h2>
+        <h2>Lists used in the forms</h2>
         <p class="muted">One value per line. These populate the dropdowns in the Add forms.</p>
         <p class="muted"><strong>Belt Colors</strong> order matters - list them lowest to highest.
-          That order is what the Rewards tab uses to work out how many levels someone progressed.</p>
+          That order is what the Rewards owed list uses to work out how many levels someone progressed.</p>
         <div id="settingsFields"></div>
         <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
         <div class="banner" id="settingsBanner"></div>
@@ -229,6 +268,22 @@
       <div id="securityRoot"></div>
     </section>
 
+  </div>
+
+  <!-- ============ Ninja profile: everything about one Ninja ============ -->
+  <div class="modal-overlay" id="ninjaProfileOverlay">
+    <div class="modal wide profile">
+      <div class="profile-head">
+        <div>
+          <h2 id="profileName"></h2>
+          <div id="profileSub" class="muted"></div>
+        </div>
+        <button class="btn-secondary" id="profileClose">Close</button>
+      </div>
+      <div class="banner error" id="profileError"></div>
+      <div class="profile-actions" id="profileActions"></div>
+      <div class="profile-grid" id="profileBody"></div>
+    </div>
   </div>
 
   <!-- ============ MODAL: Add Lead ============ -->
@@ -347,11 +402,11 @@
       </div>
       <div class="field full">
         <label for="af_belt">Belt</label>
-        <div class="hint">A belt-up logged on the Belts tab moves this up automatically (never down). Left blank, it is filled in from the Belts tab.</div>
+        <div class="hint">A belt-up logged on the Belt-ups list moves this up automatically (never down). Left blank, it is filled in from the Belt-ups list.</div>
         <select id="af_belt"></select>
         <label class="belt-up-option" id="af_belt_up_row" style="display:none;">
           <input type="checkbox" id="af_belt_up" checked>
-          <span id="af_belt_up_text">Record as a belt-up on the Belts tab (Rewards will count it)</span>
+          <span id="af_belt_up_text">Record as a belt-up on the Belt-ups list (Rewards will count it)</span>
         </label>
       </div>
       <div class="family-fields">
@@ -466,7 +521,7 @@
   <div class="modal-overlay" id="beltMatchModalOverlay">
     <div class="modal wide">
       <h2>Which Ninja is this?</h2>
-      <p class="muted">These names in the Belts tab match more than one Ninja on the Active Ninjas tab.
+      <p class="muted">These names in the Belt-ups list match more than one Ninja on the Ninjas page.
         Pick who each belt belongs to. A Ninja who already has a belt keeps it.</p>
       <div class="banner error" id="beltMatchError"></div>
       <div id="beltMatchList"></div>
@@ -482,7 +537,7 @@
     <div class="modal">
       <h2>Belts for these totem tags</h2>
       <p class="muted">Same order as the printed sheet: left to right, then down.
-        Belts come from the Active Ninjas tab, or from the Ninja's latest Belts-tab entry if
+        Belts come from the Ninjas page, or from the Ninja's latest Belts-tab entry if
         they have none there.</p>
       <p class="muted" id="tagBeltsSummary"></p>
       <div class="review-list">

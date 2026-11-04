@@ -6,7 +6,7 @@ import {
   formatStartTime, looksLikeClassSchedule, looksLikeRankList, parseActiveNinjasCsv, parseClassSchedule, parseRankList,
   slotStartMinutes,
 } from "../lib/schedule_import.js";
-import { beltFromRank, formatBeltName, getBeltOrder, normalizeBelt } from "../lib/rewards.js";
+import { beltFromRank, buildEarned, formatBeltName, getBeltOrder, getSummary, normalizeBelt } from "../lib/rewards.js";
 import { parseCSV } from "../lib/csv.js";
 import { LINKS_SETTING, fillMissingBelts, matchBelts, nameKey } from "../lib/belt_match.js";
 import {
@@ -85,11 +85,26 @@ route("GET", "/api/active-ninjas/person", ({ query }) => {
   return conn.all(`${CLASS_SELECT} WHERE lower(trim(a.name)) = ? ORDER BY a.id`, [name]);
 });
 
-// One Ninja with what the other tabs know about them: family, brothers/sisters, classes, belts, leads.
+// ?name= -> {uid, name} of the Ninja with that name (for names shown on the Belts / Rewards / Leads pages).
+route("GET", "/api/ninjas/find", ({ query }) => {
+  const ninja = ninjasNamed(conn, query.name || "")[0];
+  if (!ninja) throw new ApiError(`"${pyStr(query.name).trim()}" isn't a Ninja on file (they may only be on the Belts or Leads page).`, 404);
+  return { uid: ninja.uid, name: ninja.name };
+});
+
+// One Ninja with everything every page knows about them (the Ninja profile window): family and
+// brothers/sisters, classes, belt-ups, rewards owed and given, JR notes and the lead they came from.
 route("GET", "/api/ninjas/:key", ({ params }) => {
   const ninja = getNinja(conn, params.key);
   if (!ninja) throw new ApiError("That Ninja no longer exists.", 404);
   const family = getFamily(conn, ninja.family_uid);
+  const mine = (table, order) =>
+    conn.all(`SELECT * FROM ${table} ORDER BY ${order}`).filter((r) => r.ninja_uid === ninja.uid || (!r.ninja_uid && nameKey(r.name) === nameKey(ninja.name)));
+
+  // Rewards are worked out by name (js/lib/rewards.js); linked rows carry the Ninja's name.
+  const key = nameKey(ninja.name);
+  const owedRow = getSummary(conn).rows.find((r) => nameKey(r.name) === key) || null;
+  const earnedName = Object.keys(buildEarned(conn)).find((n) => nameKey(n) === key);
   return {
     ...ninja,
     family,
@@ -97,7 +112,11 @@ route("GET", "/api/ninjas/:key", ({ params }) => {
       ? conn.all("SELECT uid, name FROM ninjas WHERE family_uid = ? AND uid <> ? ORDER BY name", [family.uid, ninja.uid])
       : [],
     classes: conn.all("SELECT * FROM active_ninjas WHERE ninja_uid = ? ORDER BY id", [ninja.uid]),
-    belts: conn.all("SELECT * FROM belt_entries WHERE ninja_uid = ? ORDER BY id", [ninja.uid]),
+    belts: mine("belt_entries", "id"),
+    owed: owedRow,
+    levels: earnedName ? buildEarned(conn)[earnedName].level_ups : 0,
+    given: mine("receipts", "id DESC"),
+    notes: mine("jr_notes", "created_at DESC, id DESC"),
     leads: conn.all("SELECT id, entry_number, ninja_name, gbs_date, lead_date FROM leads WHERE ninja_uid = ? ORDER BY entry_number", [ninja.uid]),
   };
 });
