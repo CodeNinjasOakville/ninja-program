@@ -131,6 +131,70 @@ await call("POST", "/api/belts", { name: "emma park", old_belt: "White", new_bel
 await call("GET", "/api/belts");
 check("a new belt entry links to the Ninja", conn.get("SELECT ninja_uid, name FROM belt_entries WHERE lower(name) = 'emma park'").ninja_uid === ninjaOf("Emma Park").uid);
 
+// ---- Belts from MyStudio
+const { beltFromRank, getBeltOrder } = await import("../js/lib/rewards.js");
+const order = getBeltOrder(conn);
+check("belt read from rank text", beltFromRank("CREATE - Green Belt", order) === "green" && beltFromRank("purple", order) === "purple" &&
+  beltFromRank("Level 3", order) === "", [beltFromRank("CREATE - Green Belt", order)]);
+
+const beltOf = (name) => ninjaOf(name).belt;
+const entriesFor = (name) => conn.all("SELECT old_belt, new_belt FROM belt_entries WHERE ninja_uid = ? ORDER BY id", [ninjaOf(name).uid]);
+conn.run("UPDATE ninjas SET belt = '' WHERE name = 'Sam Park'");
+conn.run("UPDATE active_ninjas SET belt = '' WHERE name = 'Sam Park'");
+const rankFile = "Participant name,Customer name,Email address,Rank\n" +
+  "Mia Lee,Grace Lee,lee@x.com,Green Belt\n" +   // Orange here -> belt-up (matched through her family)
+  "SAM PARK,,,White Belt\n" +                     // no belt here -> starting belt
+  "Leo Kim,,,Yellow\n" +                           // compared too, though he has no classes now
+  "Ava Diaz,,,Level 3\n" +                         // not a belt in Settings
+  "Nobody Here,,,Blue\n";
+let ranks = await call("POST", "/api/active-ninjas/import", undefined, upload(rankFile));
+const beltFor = (name) => (ranks.updates.find((u) => u.name === name) || {}).belt;
+check("a rank list is recognised", ranks.preview && ranks.kind === "ranks" && !ranks.people.length && !ranks.missing.length, ranks);
+check("higher belt = belt-up", beltFor("Mia Lee-Wong") && beltFor("Mia Lee-Wong").kind === "up" && beltFor("Mia Lee-Wong").from === "Orange" &&
+  beltFor("Mia Lee-Wong").to === "Green" && beltFor("Mia Lee-Wong").levels === 1, beltFor("Mia Lee-Wong"));
+check("no belt here = starting belt", beltFor("Sam Park") && beltFor("Sam Park").kind === "start" && beltFor("Sam Park").to === "White", beltFor("Sam Park"));
+check("unknown rank is shown, not applied", beltFor("Ava Diaz") && beltFor("Ava Diaz").kind === "unknown", beltFor("Ava Diaz"));
+check("names that aren't Ninjas are listed", ranks.notFound.join() === "Nobody Here", ranks.notFound);
+
+const applied = await call("POST", "/api/active-ninjas/import/confirm", {
+  updates: ranks.updates.filter((u) => u.belt.kind !== "unknown").map((u) => ({ uid: u.uid, belt: { to: u.belt.to } })),
+});
+check("belt-up reported", applied.beltUps.length === 1 && /Mia Lee-Wong: Orange . Green/.test(applied.beltUps[0]) && applied.startingBelts === 2, applied);
+check("belt-up recorded on the Belts tab (rewards follow)", JSON.stringify(entriesFor("Mia Lee-Wong").slice(-1)) === JSON.stringify([{ old_belt: "Orange", new_belt: "Green" }]), entriesFor("Mia Lee-Wong"));
+check("Ninja and classes carry the new belt", beltOf("Mia Lee-Wong") === "Green" &&
+  conn.all("SELECT belt FROM active_ninjas WHERE ninja_uid = ?", [ninjaOf("Mia Lee-Wong").uid]).every((r) => r.belt === "Green"));
+check("starting belt recorded without rewards", beltOf("Sam Park") === "White" && JSON.stringify(entriesFor("Sam Park")) === JSON.stringify([{ old_belt: "", new_belt: "White" }]), entriesFor("Sam Park"));
+const rewardsNow = await call("GET", "/api/rewards/summary");
+check("the belt-up shows in Rewards", JSON.stringify(rewardsNow).includes("Mia Lee-Wong"));
+
+ranks = await call("POST", "/api/active-ninjas/import", undefined, upload(rankFile));
+check("same file again: no belt changes", ranks.updates.every((u) => u.belt.kind === "unknown"), ranks.updates);
+ranks = await call("POST", "/api/active-ninjas/import", undefined, upload("Name,Belt\nMia Lee-Wong,Yellow\n"));
+check("a lower belt is offered but flagged", ranks.updates[0].belt.kind === "lower", ranks.updates);
+
+// The Belts tab takes the same file.
+ranks = await call("POST", "/api/belts/import", undefined, upload("Student name,Current rank\nSam Park,Yellow belt\n"));
+check("Belts tab import reviews a rank list", ranks.preview && ranks.updates[0].belt.kind === "up", ranks);
+
+// A belt column in the class schedule export.
+const withBelt = csv(
+  "\"Tuesday, Nov 4\",04:00 PM,CREATE,SAM PARK,Jin Park,park@x.com,416-555-0199",
+  "\"Saturday, Nov 8\",11:00 AM,CREATE,NOAH BELL,Amy Bell,bell@x.com,",
+).replace("Phone number ", "Phone number,Belt") + "";
+const withBeltRows = withBelt.split("\n");
+withBeltRows[1] += ",Blue Belt"; withBeltRows[2] += ",Yellow";
+const classBelts = await call("POST", "/api/active-ninjas/import", undefined, upload(withBeltRows.join("\n")));
+const samUp = classBelts.updates.find((u) => u.name === "Sam Park");
+check("class export with a belt column: belt-up for a Ninja here", samUp && samUp.belt && samUp.belt.kind === "up" && samUp.belt.to === "Blue", classBelts.updates);
+check("class export with a belt column: new Ninja gets the belt", classBelts.people.find((p) => p.name === "Noah Bell").belt === "Yellow", classBelts.people);
+await call("POST", "/api/active-ninjas/import/confirm", { people: classBelts.people });
+check("new Ninja starts with that belt", beltOf("Noah Bell") === "Yellow" && conn.get("SELECT belt FROM active_ninjas WHERE name = 'Noah Bell'").belt === "Yellow");
+
+// An old-style roster file with a Belt column is still a roster.
+const flatResult = await call("POST", "/api/active-ninjas/import", undefined, upload("Name,Day,Time Slot,Belt\nZara Fox,Monday,4 PM,Green\n"));
+check("Name/Day/Time Slot file with a Belt column still adds to the roster, with the belt",
+  flatResult.successCount === 1 && beltOf("Zara Fox") === "Green", [flatResult, ninjaOf("Zara Fox")]);
+
 // ---- If linking ever fails, the lists still load.
 const leadCount = conn.get("SELECT COUNT(*) AS c FROM leads").c;
 conn.run("DROP TABLE ninjas");

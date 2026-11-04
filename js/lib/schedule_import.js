@@ -26,6 +26,8 @@ const FLAT_HEADER_ALIASES = {
   "junior": "is_jr",
   "scratchjr": "is_jr",
   "scratch jr": "is_jr",
+  "belt": "belt",
+  "current belt": "belt",
 };
 
 const cell = (v) => String(v == null ? "" : v);
@@ -179,6 +181,18 @@ const CLASS_HEADER_ALIASES = {
   "customer name": "customer", "customer": "customer",
   "email address": "email", "email": "email", "customer email": "email",
   "phone number": "phone", "phone": "phone", "customer phone": "phone",
+  // A belt / rank column, if the export has one (MyStudio's rank & belt tracking).
+  "rank": "rank", "belt": "rank", "current rank": "rank", "current belt": "rank", "rank name": "rank",
+  "belt rank": "rank", "belt color": "rank", "belt colour": "rank", "program rank": "rank", "participant rank": "rank",
+};
+
+// For a list of Ninjas and their belts (no classes): who the row is about.
+const RANK_LIST_NAME_ALIASES = {
+  "participant name": "participant", "participant": "participant", "student name": "participant",
+  "student": "participant", "member name": "participant", "member": "participant", "name": "participant",
+  "ninja name": "participant", "ninja": "participant", "child name": "participant", "full name": "participant",
+  "first name": "first", "participant first name": "first", "student first name": "first",
+  "last name": "last", "participant last name": "last", "student last name": "last",
 };
 
 function classScheduleColumns(rows) {
@@ -219,14 +233,54 @@ export function parseClassSchedule(rows) {
     // Two children with the same name in different families stay apart.
     const who = `${name.toLowerCase()}|${family.email.toLowerCase() || family.phone.replace(/\D/g, "")}`;
     const key = `${who}|${day}|${start}`;
-    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, is_jr: false, classes: [], family: { ...family } });
+    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, is_jr: false, classes: [], family: { ...family }, rank: "" });
     const entry = merged.get(key);
+    if (!entry.rank) entry.rank = at(row, "rank");
     for (const k of ["name", "email", "phone"]) if (!entry.family[k] && family[k]) entry.family[k] = family[k];
     if (AI_CLASS_RE.test(className)) entry.is_ai = true;
     if (JR_CLASS_RE.test(className)) entry.is_jr = true;
     if (className && !entry.classes.includes(className)) entry.classes.push(className);
   }
   return [...merged.values()];
+}
+
+function rankListColumns(rows) {
+  if (!rows.length) return null;
+  const columns = {};
+  rows[0].forEach((c, i) => {
+    const key = cell(c).trim().toLowerCase();
+    const field = RANK_LIST_NAME_ALIASES[key] || CLASS_HEADER_ALIASES[key];
+    if (field && !(field in columns)) columns[field] = i;
+  });
+  const hasName = "participant" in columns || ("first" in columns && "last" in columns);
+  return hasName && "rank" in columns ? columns : null;
+}
+
+/** A list of Ninjas and their belts, e.g. a MyStudio member / rank export (no class times). */
+export function looksLikeRankList(rows) {
+  if (!rows.length || looksLikeClassSchedule(rows)) return false;
+  // A roster file with Day / Time Slot columns is a roster, even if it also has a Belt column.
+  const headers = rows[0].map((c) => cell(c).trim().toLowerCase());
+  if (headers.some((h) => ["day", "time slot", "time"].includes(h))) return false;
+  return !!rankListColumns(rows);
+}
+
+/** [{ name, rank, family: { name, email, phone } }], one per child (first row with a rank wins). */
+export function parseRankList(rows) {
+  const columns = rankListColumns(rows);
+  if (!columns) return [];
+  const at = (row, field) => (field in columns && columns[field] < row.length ? cell(row[columns[field]]).trim() : "");
+  const out = new Map();
+  for (const row of rows.slice(1)) {
+    const name = tidyName(at(row, "participant") || `${at(row, "first")} ${at(row, "last")}`);
+    if (!name) continue;
+    const family = { name: tidyName(at(row, "customer")), email: at(row, "email"), phone: at(row, "phone") };
+    const key = `${name.toLowerCase()}|${family.email.toLowerCase() || family.phone.replace(/\D/g, "")}`;
+    const rank = at(row, "rank");
+    if (!out.has(key)) out.set(key, { name, rank, family });
+    else if (!out.get(key).rank && rank) out.get(key).rank = rank;
+  }
+  return [...out.values()];
 }
 
 export function parseActiveNinjasCsv(rawText) {

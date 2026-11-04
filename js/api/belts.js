@@ -4,6 +4,9 @@ import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
 import { currentBeltLookup } from "../lib/belt_match.js";
+import { parseCSV } from "../lib/csv.js";
+import { looksLikeRankList, parseRankList } from "../lib/schedule_import.js";
+import { previewRankList } from "./active.js";
 
 function insertBelt(data) {
   const name = pyStr(data.name).trim();
@@ -53,8 +56,17 @@ route("POST", "/api/belts/bulk", ({ body }) => {
 });
 
 // Expects Name, Old Belt, New Belt columns (any extra columns are ignored).
+// A MyStudio list of Ninjas and their current belt / rank (no Old/New columns) is compared with
+// each Ninja's belt instead, and comes back for review like the Active Ninjas import.
 route("POST", "/api/belts/import", async ({ file }) => {
   const raw = await readUpload(file);
+  const rows = parseCSV(raw);
+  const headers = (rows[0] || []).map((c) => String(c || "").trim().toLowerCase());
+  if (!headers.includes("old belt") && !headers.includes("new belt") && looksLikeRankList(rows)) {
+    const list = parseRankList(rows);
+    if (!list.length) throw new ApiError("That belt / rank list has no Ninjas in it.");
+    return previewRankList(list);
+  }
   const { fieldnames, records } = readDicts(raw);
   if (!fieldnames) throw new ApiError("CSV has no header row.");
 

@@ -835,6 +835,7 @@ function rosterReviewRow(person, checked) {
     name.appendChild(el("span", { class: "muted review-similar", text: `already here as "${person.similar_to}"?` }));
   }
   if (familyText(person.family)) name.appendChild(el("span", { class: "review-family", text: "Parent: " + familyText(person.family) }));
+  if (person.belt) name.appendChild(el("span", { class: "review-family", text: `${person.belt} belt (starting belt)` }));
   const sessions = el("span", { class: "sessions-cell" });
   person.sessions.forEach((r) => sessions.appendChild(sessionPill(r)));
   return el("label", { class: "review-row" }, [checkbox, name, sessions]);
@@ -905,7 +906,29 @@ function rosterUpdateRow(update) {
     update.familyBox = t.box;
     changes.appendChild(t.label);
   }
+  const belt = beltChangeView(update.belt);
+  if (belt) {
+    if (belt.checkable) {
+      const t = reviewToggle(el("span", { class: "belt-change " + update.belt.kind, text: belt.text }), belt.checked);
+      update.beltBox = t.box;
+      changes.appendChild(t.label);
+    } else {
+      changes.appendChild(el("span", { class: "muted", text: belt.text }));
+    }
+  }
   return el("div", { class: "review-row" }, [name, changes]);
+}
+
+// How a belt difference from the file is shown in the review window.
+function beltChangeView(b) {
+  if (!b) return null;
+  if (b.kind === "up") {
+    return { checkable: true, checked: true, text: `Belted up: ${b.from} \u2192 ${b.to} (+${b.levels} level${b.levels === 1 ? "" : "s"}, recorded on the Belts tab)` };
+  }
+  if (b.kind === "start") return { checkable: true, checked: true, text: `Belt: ${b.to} (first belt on file, no rewards)` };
+  if (b.kind === "set") return { checkable: true, checked: true, text: `Belt: ${b.from} \u2192 ${b.to}` };
+  if (b.kind === "lower") return { checkable: true, checked: false, text: `File says ${b.to}, here ${b.from} (lower - check before ticking)` };
+  return { checkable: false, text: `Rank "${b.rank}" isn't a belt in Settings` };
 }
 
 function rosterMissingRow(person) {
@@ -920,7 +943,7 @@ function rosterMissingRow(person) {
 /** What would be sent if the button were pressed now. */
 function rosterChoices() {
   const people = rosterReview.people.filter((p) => p.checkbox.checked)
-    .map((p) => ({ name: p.name, family: p.family, lead: p.lead, sessions: p.sessions }));
+    .map((p) => ({ name: p.name, family: p.family, lead: p.lead, belt: p.belt || "", sessions: p.sessions }));
   const familyOf = (f) => ({ name: f.name, email: f.email, phone: f.phone });
   const sessionOf = (s) => ({ day: s.day, time_slot: s.time_slot, is_ai: s.is_ai, is_jr: s.is_jr, notes: s.notes });
   const updates = rosterReview.updates.map((u) => ({
@@ -930,7 +953,8 @@ function rosterChoices() {
     remove: u.remove.filter((s) => s.box.checked).map((s) => ({ id: s.id })),
     marks: u.marks.filter((m) => m.box.checked).map((m) => ({ id: m.id, set_jr: m.set_jr, set_ai: m.set_ai })),
     family: u.family && u.familyBox.checked ? familyOf(u.family) : null,
-  })).filter((u) => u.rename || u.add.length || u.remove.length || u.marks.length || u.family);
+    belt: u.beltBox && u.beltBox.checked ? { to: u.belt.to } : null,
+  })).filter((u) => u.rename || u.add.length || u.remove.length || u.marks.length || u.family || u.belt);
   // "Same Ninja as ...": everything the file says about them (removals only where suggested).
   const linked = rosterReview.people.filter((p) => p.sameBox && p.sameBox.checked).map((p) => p.same_as);
   linked.forEach((u) => updates.push({
@@ -939,6 +963,7 @@ function rosterChoices() {
     remove: u.remove.filter((s) => s.suggested).map((s) => ({ id: s.id })),
     marks: u.marks.map((m) => ({ id: m.id, set_jr: m.set_jr, set_ai: m.set_ai })),
     family: u.family ? familyOf(u.family) : null,
+    belt: u.belt && ["up", "start", "set"].includes(u.belt.kind) ? { to: u.belt.to } : null,
   }));
   const keep = new Set(linked.map((u) => u.uid)); // they are in the file after all
   const missing = rosterReview.missing.filter((m) => m.checkbox.checked && !keep.has(m.uid)).map((m) => m.uid);
@@ -960,7 +985,10 @@ function updateRosterReviewUI() {
   btn.disabled = !parts.length;
 }
 
-function openRosterReview(result) {
+let rosterBanner = "activeImportBanner"; // where the result is shown (Active Ninjas or Belts tab)
+
+function openRosterReview(result, bannerId) {
+  rosterBanner = bannerId || "activeImportBanner";
   hideBanner("rosterError");
   rosterReview = { people: result.people || [], updates: result.updates || [], missing: result.missing || [] };
   const fresh = rosterReview.people.filter((p) => !p.similar_to);
@@ -968,18 +996,25 @@ function openRosterReview(result) {
   const existing = result.alreadyThere || [];
   const inFile = rosterReview.people.length + rosterReview.updates.length + existing.length;
 
+  const notFound = result.notFound || [];
+  const notFoundText = notFound.length
+    ? ` ${plural(notFound.length, "name")} in the file ${notFound.length === 1 ? "isn't a Ninja" : "aren't Ninjas"} here and ${notFound.length === 1 ? "was" : "were"} left out: ${notFound.join(", ")}.`
+    : "";
   if (!rosterReview.people.length && !rosterReview.updates.length && !rosterReview.missing.length) {
     showBanner(
-      "activeImportBanner",
-      `Everything matches - all ${plural(existing.length, "Ninja")} in that file are already on the roster with the same classes.`,
+      rosterBanner,
+      result.kind === "ranks"
+        ? `No belt changes - all ${plural(existing.length, "Ninja")} found in that file already have that belt.${notFoundText}`
+        : `Everything matches - all ${plural(existing.length, "Ninja")} in that file are already on the roster with the same classes and belts.`,
       "success"
     );
     return;
   }
 
-  document.getElementById("rosterSummary").textContent =
-    `${plural(inFile, "Ninja")} in this file` + (result.days && result.days.length ? ` (${result.days.join(", ")})` : "") +
-    ". Ninjas are matched by name and by parent email/phone. Nothing changes until you press the button.";
+  document.getElementById("rosterSummary").textContent = result.kind === "ranks"
+    ? `${plural(inFile, "Ninja")} found in this belt list. Higher belts are recorded as belt-ups on the Belts tab (rewards follow).${notFoundText} Nothing changes until you press the button.`
+    : `${plural(inFile, "Ninja")} in this file` + (result.days && result.days.length ? ` (${result.days.join(", ")})` : "") +
+      ". Ninjas are matched by name and by parent email/phone. Nothing changes until you press the button.";
 
   const fill = (listId, sectionId, titleId, items, title, makeRow) => {
     const list = document.getElementById(listId);
@@ -990,7 +1025,8 @@ function openRosterReview(result) {
   };
   fill("rosterNewList", "rosterNewSection", "rosterNewTitle", fresh, "New Ninjas", (p) => rosterReviewRow(p, true));
   fill("rosterSimilarList", "rosterSimilarSection", "rosterSimilarTitle", similar, "Possibly already here", rosterSimilarRow);
-  fill("rosterUpdateList", "rosterUpdateSection", "rosterUpdateTitle", rosterReview.updates, "Changes for Ninjas already here", rosterUpdateRow);
+  fill("rosterUpdateList", "rosterUpdateSection", "rosterUpdateTitle", rosterReview.updates,
+    result.kind === "ranks" ? "Belt changes" : "Changes for Ninjas already here", rosterUpdateRow);
   fill("rosterMissingList", "rosterMissingSection", "rosterMissingTitle", rosterReview.missing, "Not in this file", rosterMissingRow);
 
   document.getElementById("rosterExistingTitle").textContent = `Already up to date (${existing.length})`;
@@ -1028,11 +1064,17 @@ document.getElementById("rosterSubmit").addEventListener("click", async () => {
     if (r.removedNinjas) parts.push(`${plural(r.removedNinjas, "Ninja")} taken off the roster`);
     if (r.linkedLeads) parts.push(`${plural(r.linkedLeads, "lead")} marked enrolled`);
     if (r.renamed) parts.push(`${plural(r.renamed, "Ninja")} renamed`);
+    const ups = r.beltUps || [];
+    if (ups.length) parts.push(`${plural(ups.length, "Ninja")} belted up`);
+    if (r.startingBelts) parts.push(`${plural(r.startingBelts, "starting belt")} recorded`);
+    if (r.beltsCorrected) parts.push(`${plural(r.beltsCorrected, "belt")} corrected`);
     document.getElementById("rosterModalOverlay").classList.remove("open");
-    showBannerWithDetails("activeImportBanner", (parts.join(", ") || "Nothing changed") + ".", [
+    showBannerWithDetails(rosterBanner, (parts.join(", ") || "Nothing changed") + ".", [
+      { title: "Belted up (see the Belts tab and Rewards)", lines: ups },
       { title: "Left as they were", lines: r.skipped },
     ], parts.length ? "success" : "error");
     loadActiveNinjas();
+    if (ups.length || r.startingBelts) loadBelts();
   } catch (error) {
     showBanner("rosterError", error.message, "error");
     btn.disabled = false;
@@ -1974,6 +2016,11 @@ document.getElementById("importBeltsFile").addEventListener("change", async (e) 
 
   try {
     const result = await apiUpload("/api/belts/import", file);
+    if (result.preview) {
+      // A MyStudio belt / rank list: reviewed in the same window as the Active Ninjas import.
+      openRosterReview(result, "beltsImportBanner");
+      return;
+    }
     showImportResult("beltsImportBanner", result, "imported");
     if (result.successCount > 0) loadBelts();
   } catch (error) {

@@ -621,6 +621,9 @@ td.dup-cell { background: #fff3d6; }
 .review-choices { flex-direction: column; flex: 0 0 48%; }
 .review-row .person-name .sessions-cell { display: block; margin-top: 3px; }
 .session-pill.adding { background: #dcf5e6; }
+.belt-change { padding: 1px 6px; border-radius: 4px; background: #eef0fa; }
+.belt-change.up { background: #dcf5e6; color: #17643c; font-weight: 600; }
+.belt-change.lower { background: #fff3d6; color: #8a5a00; }
 .session-pill.removing { background: #fde2e2; text-decoration: line-through; }
 .lead-badge, .enrolled-badge {
   display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;

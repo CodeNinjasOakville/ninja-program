@@ -3,8 +3,10 @@ import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import {
-  formatStartTime, looksLikeClassSchedule, parseActiveNinjasCsv, parseClassSchedule, slotStartMinutes,
+  formatStartTime, looksLikeClassSchedule, looksLikeRankList, parseActiveNinjasCsv, parseClassSchedule, parseRankList,
+  slotStartMinutes,
 } from "../lib/schedule_import.js";
+import { beltFromRank, formatBeltName, getBeltOrder, normalizeBelt } from "../lib/rewards.js";
 import { parseCSV } from "../lib/csv.js";
 import { LINKS_SETTING, fillMissingBelts, matchBelts, nameKey } from "../lib/belt_match.js";
 import {
@@ -295,6 +297,74 @@ function familyChange(onFile, fromFile) {
   return changes.length ? { ...wanted, note: changes.join(", ") } : null;
 }
 
+// ---- Belts from MyStudio (a rank / belt column in an export) ----
+
+/**
+ * How the belt in the file compares with the Ninja's belt here (null = same, or the file has none):
+ *   up      a higher belt: recorded on the Belts tab as old -> new, so the rewards follow
+ *   start   no belt here yet: recorded as their starting belt (no rewards)
+ *   set     the belt here isn't one of the Settings belts: replaced
+ *   lower   the file has a lower belt: offered, not ticked
+ *   unknown the file's rank isn't one of the Settings belts: shown only
+ */
+function beltChange(currentBelt, rankText, order) {
+  const rank = pyStr(rankText).trim();
+  if (!rank) return null;
+  const to = beltFromRank(rank, order);
+  if (!to) return { kind: "unknown", rank, from: pyStr(currentBelt).trim(), to: "" };
+  const now = normalizeBelt(currentBelt);
+  if (now === to) return null;
+  const view = { rank, from: now ? formatBeltName(now) : "", to: formatBeltName(to) };
+  if (!now) return { ...view, kind: "start" };
+  if (!order.includes(now)) return { ...view, kind: "set" };
+  if (order.indexOf(to) > order.indexOf(now)) return { ...view, kind: "up", levels: order.indexOf(to) - order.indexOf(now) };
+  return { ...view, kind: "lower" };
+}
+
+/** Puts the belt on the Ninja and records the belt-up (or starting belt) on the Belts tab. */
+function applyBelt(ninja, rankOrBelt, result) {
+  const order = getBeltOrder(conn);
+  const change = beltChange(ninja.belt, rankOrBelt, order);
+  if (!change || change.kind === "unknown") return false;
+  if (change.kind === "up" || change.kind === "start") {
+    conn.run("INSERT INTO belt_entries (name, old_belt, new_belt, ninja_uid) VALUES (?, ?, ?, ?)",
+      [ninja.name, change.kind === "up" ? change.from : "", change.to, ninja.uid]);
+  }
+  setNinjaBelt(conn, ninja.uid, change.to);
+  ninja.belt = change.to;
+  if (change.kind === "up") result.beltUps.push(`${ninja.name}: ${change.from} \u2192 ${change.to}`);
+  else if (change.kind === "start") result.startingBelts += 1;
+  else result.beltsCorrected += 1;
+  return true;
+}
+
+// A list of Ninjas and their belts (no classes): only belts change. Children who aren't Ninjas
+// here are listed, not added - a rank list doesn't say which classes they come to.
+export function previewRankList(list) {
+  const ninjas = conn.all("SELECT * FROM ninjas ORDER BY created_at, uid");
+  const families = new Map(conn.all("SELECT * FROM families").map((f) => [f.uid, f]));
+  const order = getBeltOrder(conn);
+  const updates = [], unchanged = [], notFound = [];
+  for (const person of list) {
+    const found = matchNinja(person, ninjas, families);
+    if (!found) { notFound.push(person.name); continue; }
+    const belt = beltChange(found.ninja.belt, person.rank, order);
+    if (!belt) { unchanged.push(found.ninja.name); continue; }
+    updates.push({
+      uid: found.ninja.uid, name: found.ninja.name,
+      file_name: nameKey(person.name) !== nameKey(found.ninja.name) ? person.name : "",
+      family: null, add: [], remove: [], marks: [], belt,
+    });
+  }
+  const byName = (a, b) => a.name.localeCompare(b.name);
+  return {
+    preview: true, kind: "ranks", people: [], missing: [], days: [],
+    updates: updates.sort(byName),
+    alreadyThere: unchanged.sort((a, b) => a.localeCompare(b)),
+    notFound: notFound.sort((a, b) => a.localeCompare(b)),
+  };
+}
+
 function previewClassSchedule(entries) {
   const classes = conn.all("SELECT * FROM active_ninjas ORDER BY id");
   const ninjas = conn.all("SELECT * FROM ninjas ORDER BY created_at, uid");
@@ -305,13 +375,16 @@ function previewClassSchedule(entries) {
   const bySchedule = (a, b) => dayIndex(a.day) - dayIndex(b.day) ||
     (slotStartMinutes(a.time_slot) ?? 9999) - (slotStartMinutes(b.time_slot) ?? 9999);
   const fileDays = new Set(entries.map((e) => e.day.toLowerCase()).filter(Boolean));
+  const order = getBeltOrder(conn);
 
   // One person per child in the file (the same name in two families = two children).
   const people = new Map();
   for (const entry of entries) {
     const key = `${nameKey(entry.name)}|${emailKey(entry.family.email) || phoneKey(entry.family.phone)}`;
-    if (!people.has(key)) people.set(key, { name: entry.name, family: { ...entry.family }, sessions: [] });
-    people.get(key).sessions.push(entry);
+    if (!people.has(key)) people.set(key, { name: entry.name, family: { ...entry.family }, sessions: [], rank: "" });
+    const person = people.get(key);
+    person.sessions.push(entry);
+    if (!person.rank && entry.rank) person.rank = entry.rank;
   }
 
   const rosterNames = new Map(); // nameKey -> name as on the roster, for the "already here as...?" hint
@@ -344,6 +417,7 @@ function previewClassSchedule(entries) {
       name: ninja.name,
       file_name: nameKey(person.name) !== nameKey(ninja.name) ? person.name : "",
       family: familyChange(families.get(ninja.family_uid) || null, person.family),
+      belt: beltChange(ninja.belt, person.rank, order),
       add: add.sort(bySchedule),
       remove: remove.sort(bySchedule),
       marks: marks.sort(bySchedule),
@@ -368,6 +442,8 @@ function previewClassSchedule(entries) {
         // so the next import recognises them by family).
         same_as: similar ? diffAgainst(similar, person) : null,
         family: person.family,
+        belt: formatBeltName(beltFromRank(person.rank, order)),
+        rank: person.rank,
         lead: lead ? { id: lead.id, entry_number: lead.entry_number, ninja_name: lead.ninja_name } : null,
         sessions: person.sessions.map((s) => ({
           day: s.day, time_slot: label(s.day, s.start), is_ai: s.is_ai, is_jr: s.is_jr, notes: s.classes.join(" + "),
@@ -378,7 +454,7 @@ function previewClassSchedule(entries) {
 
     matched.add(found.ninja.uid);
     const update = diffAgainst(found.ninja, person);
-    if (!update.add.length && !update.marks.length && !update.remove.length && !update.family) {
+    if (!update.add.length && !update.marks.length && !update.remove.length && !update.family && !update.belt) {
       unchanged.push(found.ninja.name);
       continue;
     }
@@ -423,6 +499,11 @@ route("POST", "/api/active-ninjas/import", async ({ file }) => {
       if (!entries.length) throw new ApiError("That class schedule export has no Ninjas in it.");
       return previewClassSchedule(entries);
     }
+    if (looksLikeRankList(rows)) {
+      const list = parseRankList(rows);
+      if (!list.length) throw new ApiError("That belt / rank list has no Ninjas in it.");
+      return previewRankList(list);
+    }
     parsed = parseActiveNinjasCsv(raw);
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -438,10 +519,12 @@ route("POST", "/api/active-ninjas/import", async ({ file }) => {
 });
 
 // Body (every part optional; only what was ticked in the review window):
-//   people:  [{name, family: {name, email, phone}, lead: {id}, sessions: [{day, time_slot, is_ai, is_jr, notes}]}]
+//   people:  [{name, family: {name, email, phone}, lead: {id}, belt, sessions: [{day, time_slot, is_ai, is_jr, notes}]}]
 //            new Ninjas. Anyone whose name has classes by now is skipped, never doubled up.
 //   updates: [{uid, family: {name, email, phone} | null, add: [sessions], remove: [{id}], marks: [{id, set_jr, set_ai}],
-//             rename: "name from the file" (optional)}]
+//             rename: "name from the file" (optional), belt: {to} (optional)}]
+//            A belt higher than theirs is recorded on the Belts tab as a belt-up (old -> new), so the
+//            rewards follow; a first belt is recorded as their starting belt.
 //            changes to Ninjas already on file.
 //   missing: [uid, ...] Ninjas no longer in the export: their classes are removed. The Ninja record,
 //            family, belts, rewards and notes stay, so they are recognised if they come back.
@@ -455,6 +538,7 @@ route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
   const result = {
     addedNinjas: 0, addedSessions: 0, skipped: [], updatedNinjas: 0, addedClasses: 0, removedClasses: 0,
     markedJr: 0, markedAi: 0, familiesUpdated: 0, removedNinjas: 0, linkedLeads: 0, renamed: 0,
+    beltUps: [], startingBelts: 0, beltsCorrected: 0,
   };
 
   conn.transaction(() => {
@@ -469,6 +553,7 @@ route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
       onRoster.add(nameKey(name));
       const familyUid = person.family ? findOrCreateFamily(conn, person.family) : null;
       const uid = ensureNinja(conn, name, { family_uid: familyUid });
+      if (pyStr(person.belt).trim()) applyBelt(getNinja(conn, uid), person.belt, result);
       for (const session of sessions) insertActiveNinja({ ...session, name: getNinja(conn, uid).name });
       const leadId = person.lead && Number(person.lead.id);
       if (leadId && conn.get("SELECT 1 AS x FROM leads WHERE id = ? AND (ninja_uid IS NULL OR ninja_uid = '')", [leadId])) {
@@ -518,6 +603,7 @@ route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
         else conn.run("UPDATE ninjas SET family_uid = ? WHERE uid = ?", [findOrCreateFamily(conn, details), ninja.uid]);
         result.familiesUpdated += 1; touched = true;
       }
+      if (change.belt && pyStr(change.belt.to).trim() && applyBelt(ninja, change.belt.to, result)) touched = true;
       if (touched) result.updatedNinjas += 1;
     }
 

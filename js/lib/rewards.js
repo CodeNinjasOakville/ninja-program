@@ -31,6 +31,16 @@ export function normalizeBelt(belt) {
   return String(belt || "").trim().toLowerCase().replace(/\s+belts?$/, "").trim();
 }
 
+/**
+ * The belt named in a rank as MyStudio (or anyone) writes it: "Yellow Belt", "CREATE - Orange belt",
+ * "orange" -> "orange". Only belts listed in Settings count; "" when none is named.
+ */
+export function beltFromRank(text, beltOrder) {
+  const t = ` ${String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+  const longestFirst = [...beltOrder].filter(Boolean).sort((a, b) => b.length - a.length);
+  return longestFirst.find((belt) => t.includes(` ${belt.replace(/[^a-z0-9]+/g, " ").trim()} `)) || "";
+}
+
 export function getBeltOrder(conn) {
   return getSetting("belt_options", [])
     .filter((b) => String(b).trim())
