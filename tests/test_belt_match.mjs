@@ -1,5 +1,5 @@
-// Active Ninjas <-> Belts tab: the Active Ninjas belt always wins, blanks are filled from the
-// Belts tab, and a name that could be more than one Ninja waits for someone to choose.
+// Active Ninjas <-> Belts tab: the Belts tab is the belt-up log - a higher belt there moves the Ninja
+// up, never down; blanks are filled; a name that could be more than one Ninja waits for someone to choose.
 import { check, finish } from "./helpers.mjs";
 import { openDatabase, closeDatabase, conn } from "../js/core/db.js";
 import { handleRequest } from "../js/api/index.js";
@@ -20,7 +20,7 @@ await call("POST", "/api/active-ninjas/person", { name: "Alex J Chen", sessions:
 await call("POST", "/api/active-ninjas/person", { name: "Alex M Chen", sessions: [{ day: "Wednesday", time_slot: "5 PM" }] });
 
 await call("POST", "/api/belts/bulk", { text: [
-  "Mia Lee|White|Yellow",          // Mia's Active belt (Blue) must win
+  "Mia Lee|White|Yellow",          // lower than Mia's Active belt (Blue): she keeps Blue
   "sam  park|White|Yellow",
   "Sam Park|Yellow|Orange",        // latest entry -> Orange, on both of Sam's classes
   "Jo Anne Rivera||Green",         // first + last name match -> Jo Rivera
@@ -28,7 +28,7 @@ await call("POST", "/api/belts/bulk", { text: [
 ].join("\n") });
 
 let result = await call("POST", "/api/active-ninjas/belt-matches", {});
-check("Active belt is never overwritten", JSON.stringify(beltOf("Mia Lee")) === '["Blue"]', beltOf("Mia Lee"));
+check("a lower Belts entry never moves a belt down", JSON.stringify(beltOf("Mia Lee")) === '["Blue"]', beltOf("Mia Lee"));
 check("blank belt filled from latest Belts entry, on every class", JSON.stringify(beltOf("Sam Park")) === '["Orange","Orange"]', beltOf("Sam Park"));
 check("first + last name match fills", JSON.stringify(beltOf("Jo Rivera")) === '["Green"]', beltOf("Jo Rivera"));
 check("ambiguous name fills nobody", beltOf("Alex J Chen")[0] === "" && beltOf("Alex M Chen")[0] === "");
@@ -36,11 +36,14 @@ check("ambiguous name becomes one question", result.questions.length === 1 && re
   result.questions[0].candidates.map((c) => c.name).sort().join(",") === "Alex J Chen,Alex M Chen", result.questions);
 check("filled list reports changes", result.filled.map((f) => f.name).sort().join(",") === "Jo Rivera,Sam Park", result.filled);
 
-// Belts tab changes later: Active belts stay as they are.
-await call("POST", "/api/belts", { name: "Sam Park", old_belt: "Orange", new_belt: "Green" });
+// A belt-up logged on the Belts tab later moves the Ninja up straight away.
+const added = await call("POST", "/api/belts", { name: "Sam Park", old_belt: "Orange", new_belt: "Green" });
+check("later belt-up on the Belts tab moves the Ninja up", JSON.stringify(beltOf("Sam Park")) === '["Green","Green"]', beltOf("Sam Park"));
+check("the Belts tab says whose belt changed", added.beltsUpdated.length === 1 && added.beltsUpdated[0].was === "Orange", added);
 result = await call("POST", "/api/active-ninjas/belt-matches", {});
-check("later Belts entry does not overwrite", beltOf("Sam Park")[0] === "Orange");
 check("nothing new to fill", result.filled.length === 0);
+await call("POST", "/api/belts", { name: "Sam Park", old_belt: "Green", new_belt: "Yellow" });
+check("a lower later entry doesn't move them down", beltOf("Sam Park")[0] === "Green");
 
 // Totem tags / current belt: Active belt first, Belts tab for anyone else.
 const current = await call("POST", "/api/belts/current", { names: ["Mia Lee", "Jo Anne Rivera", "Alex Chen", "Nobody"] });
@@ -68,11 +71,23 @@ await call("POST", "/api/active-ninjas/person", { name: "Jo Rivera", original_na
 check("save without belt keeps it", JSON.stringify(beltOf("Jo Rivera")) === '["Green","Green"]', beltOf("Jo Rivera"));
 await call("POST", "/api/active-ninjas/person", { name: "Jo Rivera", original_name: "Jo Rivera", belt: "Blue", sessions: jo.map((r) => ({ id: r.id, day: r.day, time_slot: r.time_slot })) });
 check("belt edited on Active Ninjas", JSON.stringify(beltOf("Jo Rivera")) === '["Blue","Blue"]', beltOf("Jo Rivera"));
+const joUps = () => conn.all("SELECT old_belt, new_belt FROM belt_entries WHERE name = 'Jo Rivera'");
+check("raising a belt in the edit window records the belt-up", joUps().some((e) => e.old_belt === "Green" && e.new_belt === "Blue"), joUps());
+await call("POST", "/api/active-ninjas/person", { name: "Jo Rivera", original_name: "Jo Rivera", belt: "Purple", belt_up: false, sessions: jo.map((r) => ({ id: r.id, day: r.day, time_slot: r.time_slot })) });
+check("a correction (belt_up: false) records nothing", beltOf("Jo Rivera")[0] === "Purple" && !joUps().some((e) => e.new_belt === "Purple"), joUps());
+await call("POST", "/api/active-ninjas/person", { name: "Jo Rivera", original_name: "Jo Rivera", belt: "Yellow", sessions: jo.map((r) => ({ id: r.id, day: r.day, time_slot: r.time_slot })) });
+check("lowering a belt records nothing", beltOf("Jo Rivera")[0] === "Yellow" && !joUps().some((e) => e.new_belt === "Yellow"), joUps());
 
 // A Ninja whose belt is cleared on the Active Ninjas tab gets it back from the Belts tab.
 await call("POST", "/api/active-ninjas/person", { name: "Jo Rivera", original_name: "Jo Rivera", belt: "", sessions: jo.map((r) => ({ id: r.id, day: r.day, time_slot: r.time_slot })) });
 await call("POST", "/api/active-ninjas/belt-matches", {});
-check("cleared belt refilled", beltOf("Jo Rivera")[0] === "Green");
+check("cleared belt refilled from the latest belt-up", beltOf("Jo Rivera")[0] === "Blue", beltOf("Jo Rivera"));
+
+// The "Fill in belts" window: a first belt is a starting belt (no rewards).
+const kai = conn.get("SELECT ninja_uid FROM active_ninjas WHERE name = 'Kai B Ito'").ninja_uid;
+const fillResult = await call("POST", "/api/ninjas/belts", { belts: [{ uid: kai, belt: "Orange" }] });
+check("fill in a missing belt", beltOf("Kai B Ito")[0] === "Orange" && fillResult.startingBelts === 1, fillResult);
+check("recorded as a starting belt", JSON.stringify(conn.all("SELECT old_belt, new_belt FROM belt_entries WHERE ninja_uid = ?", [kai])) === JSON.stringify([{ old_belt: "", new_belt: "Orange" }]));
 
 closeDatabase();
 finish("belt matching");

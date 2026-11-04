@@ -134,6 +134,10 @@
         <span id="activeBeltBannerText"></span>
         <button class="btn-secondary" id="activeBeltReviewBtn" type="button">Choose</button>
       </div>
+      <div class="banner warning" id="missingBeltBanner" style="display:none;">
+        <span id="missingBeltBannerText"></span>
+        <button class="btn-secondary" id="missingBeltBtn" type="button">Fill in belts</button>
+      </div>
       <div class="view-toggle">
         <button class="toggle-btn active" id="viewScheduleBtn">Schedule</button>
         <button class="toggle-btn" id="viewListBtn">List</button>
@@ -343,8 +347,12 @@
       </div>
       <div class="field full">
         <label for="af_belt">Belt</label>
-        <div class="hint">Left blank, it is filled in from the Belts tab. A belt chosen here is never changed by the Belts tab.</div>
+        <div class="hint">A belt-up logged on the Belts tab moves this up automatically (never down). Left blank, it is filled in from the Belts tab.</div>
         <select id="af_belt"></select>
+        <label class="belt-up-option" id="af_belt_up_row" style="display:none;">
+          <input type="checkbox" id="af_belt_up" checked>
+          <span id="af_belt_up_text">Record as a belt-up on the Belts tab (Rewards will count it)</span>
+        </label>
       </div>
       <div class="family-fields">
         <div class="family-head">
@@ -370,6 +378,21 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="activeModalCancel">Cancel</button>
         <button class="btn-primary" id="activeModalSubmit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Fill in missing belts ============ -->
+  <div class="modal-overlay" id="beltFillModalOverlay">
+    <div class="modal wide">
+      <h2>Fill in belts</h2>
+      <p class="muted">Ninjas on the roster with no belt yet. Pick each one's current belt - it is saved as their
+        starting belt (no rewards). Leave a Ninja on "-" to skip them for now.</p>
+      <div class="banner error" id="beltFillError"></div>
+      <div class="review-list belt-fill-list" id="beltFillList"></div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="beltFillCancel">Cancel</button>
+        <button class="btn-primary" id="beltFillSubmit">Save belts</button>
       </div>
     </div>
   </div>

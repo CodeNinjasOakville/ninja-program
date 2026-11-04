@@ -1,12 +1,23 @@
 // How the Belts tab and the Active Ninjas tab share belts.
-//  - A Ninja's belt on the Active Ninjas tab always wins. The Belts tab never changes it.
-//  - An Active Ninja with no belt gets the "new belt" of their latest Belts-tab entry.
+//  - The Belts tab is the belt-up log. A Ninja's belt moves UP to the "new belt" of their latest
+//    Belts-tab entry when that is higher (or they have no belt yet). It never moves down, so a
+//    belt set by hand on the Active Ninjas tab is kept over an older / lower Belts-tab entry.
 //  - Names match ignoring case and spacing, or on first + last name ("Alex J. Chen" = "Alex Chen").
 //  - When a Belts-tab name could be more than one Active Ninja, nothing is filled until someone
 //    picks which one. The answer is kept in the "belt_name_links" setting so it is asked only once.
 
 import { getSetting } from "../core/db.js";
-import { formatBeltName, normalizeBelt } from "./rewards.js";
+import { formatBeltName, getBeltOrder, normalizeBelt } from "./rewards.js";
+
+/** Is `belt` a higher belt than `current`? A blank current belt counts as lower than any belt. */
+export function isHigherBelt(belt, current, order) {
+  const to = order.indexOf(normalizeBelt(belt));
+  if (to < 0) return false;
+  const now = normalizeBelt(current);
+  if (!now) return true;
+  const from = order.indexOf(now);
+  return from >= 0 && to > from;
+}
 
 export const LINKS_SETTING = "belt_name_links";
 
@@ -92,10 +103,11 @@ export function matchBelts(conn) {
     if (claims[target] > 1 && saved[beltKey] !== target) { links.delete(beltKey); open.set(beltKey, [target]); }
   }
 
-  // Only ask when the answer could fill in a belt.
+  // Only ask when the answer could change a belt.
+  const order = getBeltOrder(conn);
   const questions = [];
   for (const [beltKey, candidates] of open) {
-    if (!candidates.some((key) => !active.get(key).belt)) continue;
+    if (!candidates.some((key) => isHigherBelt(beltTab.get(beltKey).belt, active.get(key).belt, order))) continue;
     const from = beltTab.get(beltKey);
     questions.push({
       belt_name: from.name,
@@ -107,17 +119,22 @@ export function matchBelts(conn) {
   return { links, questions, active, beltTab };
 }
 
-/** Fills in blank Active Ninja belts from the Belts tab. Returns [{name, belt, from}] that changed. */
+/**
+ * Brings Active Ninja belts up to date from the Belts tab: blank belts are filled, and a higher belt in
+ * the latest Belts-tab entry is a belt-up. A belt never moves down. Returns [{name, belt, from, was}].
+ */
 export function fillMissingBelts(conn) {
   const { links, active, beltTab } = matchBelts(conn);
+  const order = getBeltOrder(conn);
   const filled = [];
   for (const [beltKey, activeKey] of links) {
     const person = active.get(activeKey);
-    if (person.belt) continue; // never overwrite a belt set on the Active Ninjas tab
     const from = beltTab.get(beltKey);
+    if (!isHigherBelt(from.belt, person.belt, order)) continue;
+    const was = person.belt;
     setPersonBelt(conn, person.name, from.belt);
     person.belt = from.belt;
-    filled.push({ name: person.name, belt: from.belt, from: from.name });
+    filled.push({ name: person.name, belt: from.belt, from: from.name, was });
   }
   return filled;
 }

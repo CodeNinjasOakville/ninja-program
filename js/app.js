@@ -549,12 +549,76 @@ async function syncActiveBelts(choices) {
   if (result.filled.length) {
     showBanner(
       "activeImportBanner",
-      "Belts filled in from the Belts tab: " + result.filled.map((f) => `${f.name} (${f.belt})`).join(", "),
+      "Belts updated from the Belts tab: " +
+        result.filled.map((f) => (f.was ? `${f.name} (${f.was} \u2192 ${f.belt})` : `${f.name} (${f.belt})`)).join(", "),
       "success"
     );
   }
   if (beltQuestions.length && !beltQuestionsShown) openBeltMatchModal();
 }
+
+// ---- Ninjas with no belt yet: a banner, and one window to fill them all in ----
+
+let missingBeltPeople = []; // [{uid, name, sessions}]
+
+function showMissingBelts(allRows) {
+  if (document.getElementById("activeSearch").value.trim()) return; // only judge the whole roster
+  const byNinja = new Map();
+  allRows.forEach((r) => {
+    const key = r.ninja_uid || personKey(r.name);
+    if (!byNinja.has(key)) byNinja.set(key, { uid: r.ninja_uid, name: r.name, belt: "", sessions: [] });
+    const p = byNinja.get(key);
+    p.sessions.push(r);
+    if (r.belt) p.belt = r.belt;
+  });
+  missingBeltPeople = [...byNinja.values()].filter((p) => !p.belt && p.uid).sort((a, b) => a.name.localeCompare(b.name));
+  const n = missingBeltPeople.length;
+  document.getElementById("missingBeltBanner").style.display = n ? "flex" : "none";
+  document.getElementById("missingBeltBannerText").textContent =
+    `${n} Ninja${n === 1 ? " has" : "s have"} no belt yet (MyStudio's export doesn't include belts).`;
+}
+
+document.getElementById("missingBeltBtn").addEventListener("click", () => {
+  hideBanner("beltFillError");
+  const list = document.getElementById("beltFillList");
+  list.innerHTML = "";
+  const belts = (settings.belt_options || []).map((b) => formatBeltName(String(b).trim())).filter(Boolean);
+  missingBeltPeople.forEach((p) => {
+    const select = el("select");
+    select.appendChild(el("option", { value: "", text: "-" }));
+    belts.forEach((b) => select.appendChild(el("option", { value: b, text: b })));
+    p.select = select;
+    const sessions = el("span", { class: "sessions-cell" });
+    sortSessions(p.sessions).forEach((r) => sessions.appendChild(sessionPill(r)));
+    list.appendChild(el("div", { class: "review-row" }, [el("span", { class: "person-name", text: p.name }), select, sessions]));
+  });
+  document.getElementById("beltFillModalOverlay").classList.add("open");
+});
+
+document.getElementById("beltFillCancel").addEventListener("click", () => {
+  document.getElementById("beltFillModalOverlay").classList.remove("open");
+});
+
+document.getElementById("beltFillSubmit").addEventListener("click", async () => {
+  const picked = missingBeltPeople.filter((p) => p.select && p.select.value).map((p) => ({ uid: p.uid, belt: p.select.value }));
+  if (!picked.length) {
+    showBanner("beltFillError", "Pick a belt for at least one Ninja.", "error");
+    return;
+  }
+  const btn = document.getElementById("beltFillSubmit");
+  btn.disabled = true;
+  try {
+    const r = await api("/api/ninjas/belts", { method: "POST", body: JSON.stringify({ belts: picked }) });
+    document.getElementById("beltFillModalOverlay").classList.remove("open");
+    const saved = r.startingBelts + r.beltUps.length + r.beltsCorrected;
+    showBanner("activeImportBanner", `${saved} belt${saved === 1 ? "" : "s"} saved.`, "success");
+    loadActiveNinjas({ skipBeltSync: true });
+  } catch (error) {
+    showBanner("beltFillError", error.message, "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function openBeltMatchModal() {
   beltQuestionsShown = true;
@@ -618,6 +682,7 @@ async function loadActiveNinjas(options) {
 
   renderActiveSchedule(rows, allRows);
   setActiveView(activeView);
+  showMissingBelts(allRows);
 
   const visibleIds = new Set(allRows.map((r) => r.id));
   activeSelected = new Set([...activeSelected].filter((id) => visibleIds.has(id)));
@@ -1378,7 +1443,29 @@ function refreshTimeSlotSuggestions() {
 }
 
 // Belt dropdown: the Settings belt colours, plus the Ninja's current belt if it isn't one of them.
+let editingBelt = ""; // the belt the Ninja had when the edit window opened
+
+// Belt position in the Settings order (-1 = blank or not a Settings belt).
+function beltRank(belt) {
+  const order = (settings.belt_options || []).map((b) => String(b).trim().toLowerCase().replace(/\s+belts?$/, ""));
+  return order.indexOf(String(belt || "").trim().toLowerCase().replace(/\s+belts?$/, ""));
+}
+
+// Raising a belt that was already set: offer to record it as a belt-up (ticked).
+function updateBeltUpOption() {
+  const chosen = document.getElementById("af_belt").value;
+  const higher = !!editingBelt && beltRank(chosen) > beltRank(editingBelt) && beltRank(editingBelt) >= 0;
+  document.getElementById("af_belt_up_row").style.display = higher ? "flex" : "none";
+  if (higher) {
+    document.getElementById("af_belt_up_text").textContent =
+      `Record ${editingBelt} \u2192 ${chosen} as a belt-up on the Belts tab (Rewards will count it). Untick to only fix a mistake.`;
+  }
+}
+document.getElementById("af_belt").addEventListener("change", updateBeltUpOption);
+
 function fillBeltSelect(current) {
+  editingBelt = current || "";
+  document.getElementById("af_belt_up").checked = true;
   const select = document.getElementById("af_belt");
   select.innerHTML = "";
   const belts = (settings.belt_options || []).map((b) => formatBeltName(String(b).trim())).filter(Boolean);
@@ -1386,6 +1473,7 @@ function fillBeltSelect(current) {
   select.appendChild(el("option", { value: "", text: "Not set (use the Belts tab)" }));
   belts.forEach((b) => select.appendChild(el("option", { value: b, text: b })));
   select.value = belts.find((b) => b.toLowerCase() === current.toLowerCase()) || "";
+  updateBeltUpOption();
 }
 
 async function openActiveModal(row) {
@@ -1452,6 +1540,7 @@ document.getElementById("activeModalSubmit").addEventListener("click", async () 
     original_name: editingOriginalName,
     name: document.getElementById("af_name").value,
     belt: document.getElementById("af_belt").value,
+    belt_up: document.getElementById("af_belt_up_row").style.display === "none" || document.getElementById("af_belt_up").checked,
     family: {
       name: document.getElementById("af_parent_name").value,
       email: document.getElementById("af_parent_email").value,
@@ -2087,7 +2176,12 @@ document.getElementById("beltModalSubmit").addEventListener("click", async () =>
     if (editingBeltId) {
       await api(`/api/belts/${editingBeltId}`, { method: "PUT", body: JSON.stringify(data) });
     } else {
-      await api("/api/belts", { method: "POST", body: JSON.stringify(data) });
+      const added = await api("/api/belts", { method: "POST", body: JSON.stringify(data) });
+      const moved = (added && added.beltsUpdated) || [];
+      if (moved.length) {
+        showBanner("beltsImportBanner", "Active Ninjas belt updated: " +
+          moved.map((f) => (f.was ? `${f.name} (${f.was} \u2192 ${f.belt})` : `${f.name} (${f.belt})`)).join(", "), "success");
+      }
     }
     document.getElementById("beltModalOverlay").classList.remove("open");
     loadBelts();

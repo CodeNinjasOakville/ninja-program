@@ -106,7 +106,9 @@ route("GET", "/api/ninjas/:key", ({ params }) => {
 //  - sessions with an id are updated, without one are added,
 //  - existing sessions of the Ninja that are no longer listed are removed,
 //  - renaming renames the Ninja everywhere (classes, Belts tab, rewards, JR notes),
-//  - "belt" (when sent) is the Ninja's belt; without it the Ninja keeps the belt they had,
+//  - "belt" (when sent) is the Ninja's belt; without it the Ninja keeps the belt they had. A higher
+//    belt is recorded on the Belts tab as a belt-up (rewards follow) unless "belt_up" is false; a
+//    first belt is recorded as their starting belt,
 //  - "family" {name, email, phone} (when sent) is the parent / paying customer. It is shared with
 //    brothers and sisters, so changing it here changes it for them too.
 route("POST", "/api/active-ninjas/person", ({ body }) => {
@@ -160,7 +162,11 @@ route("POST", "/api/active-ninjas/person", ({ body }) => {
       // Notes written before Ninja records existed follow by name.
       if (original && nameKey(original) !== nameKey(name)) renameJrNotes(original, name);
     }
-    if ("belt" in body) setNinjaBelt(conn, uid, pyStr(body.belt).trim());
+    if ("belt" in body) {
+      const belt = pyStr(body.belt).trim();
+      if (belt && body.belt_up !== false) recordBeltChange(getNinja(conn, uid), belt);
+      setNinjaBelt(conn, uid, belt);
+    }
     if (body.family && typeof body.family === "object") saveFamilyFor(uid, body.family);
 
     const ninja = getNinja(conn, uid);
@@ -215,6 +221,19 @@ route("POST", "/api/active-ninjas/bulk", ({ body }) => {
     };
   });
   return insertAll(entries, insertActiveNinja, (i) => `Line ${i + 1}`);
+});
+
+// Body: {belts: [{uid, belt}]} - the "Fill in belts" window. Each is saved as that Ninja's belt;
+// a first belt is recorded as their starting belt, a higher one as a belt-up.
+route("POST", "/api/ninjas/belts", ({ body }) => {
+  const result = { beltUps: [], startingBelts: 0, beltsCorrected: 0 };
+  conn.transaction(() => {
+    for (const item of body.belts || []) {
+      const ninja = getNinja(conn, pyStr(item.uid));
+      if (ninja && pyStr(item.belt).trim()) applyBelt(ninja, item.belt, result);
+    }
+  });
+  return result;
 });
 
 // ---- MyStudio class-schedule import: review first, then apply only what was ticked ----
@@ -321,15 +340,24 @@ function beltChange(currentBelt, rankText, order) {
   return { ...view, kind: "lower" };
 }
 
-/** Puts the belt on the Ninja and records the belt-up (or starting belt) on the Belts tab. */
-function applyBelt(ninja, rankOrBelt, result) {
-  const order = getBeltOrder(conn);
-  const change = beltChange(ninja.belt, rankOrBelt, order);
-  if (!change || change.kind === "unknown") return false;
-  if (change.kind === "up" || change.kind === "start") {
+/**
+ * Records a belt change on the Belts tab: a higher belt as a belt-up (old -> new, so the rewards
+ * follow), a first belt as a starting belt (no rewards). A lower or unknown belt records nothing.
+ * Returns the change (see beltChange) or null.
+ */
+function recordBeltChange(ninja, belt) {
+  const change = beltChange(ninja.belt, belt, getBeltOrder(conn));
+  if (change && (change.kind === "up" || change.kind === "start")) {
     conn.run("INSERT INTO belt_entries (name, old_belt, new_belt, ninja_uid) VALUES (?, ?, ?, ?)",
       [ninja.name, change.kind === "up" ? change.from : "", change.to, ninja.uid]);
   }
+  return change;
+}
+
+/** Puts the belt on the Ninja and records the belt-up (or starting belt) on the Belts tab. */
+function applyBelt(ninja, rankOrBelt, result) {
+  const change = recordBeltChange(ninja, rankOrBelt);
+  if (!change || change.kind === "unknown") return false;
   setNinjaBelt(conn, ninja.uid, change.to);
   ninja.belt = change.to;
   if (change.kind === "up") result.beltUps.push(`${ninja.name}: ${change.from} \u2192 ${change.to}`);

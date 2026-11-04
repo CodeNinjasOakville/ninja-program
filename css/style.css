@@ -622,6 +622,11 @@ td.dup-cell { background: #fff3d6; }
 .review-row .person-name .sessions-cell { display: block; margin-top: 3px; }
 .session-pill.adding { background: #dcf5e6; }
 .belt-change { padding: 1px 6px; border-radius: 4px; background: #eef0fa; }
+.belt-up-option { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12.5px; font-weight: 400; cursor: pointer; }
+.belt-fill-list { max-height: 420px; }
+.belt-fill-list .review-row { align-items: center; cursor: default; }
+.belt-fill-list select { flex: 0 0 160px; }
+.belt-fill-list .sessions-cell { flex: 1; }
 .belt-change.up { background: #dcf5e6; color: #17643c; font-weight: 600; }
 .belt-change.lower { background: #fff3d6; color: #8a5a00; }
 .session-pill.removing { background: #fde2e2; text-decoration: line-through; }

@@ -3,7 +3,7 @@ import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
-import { currentBeltLookup } from "../lib/belt_match.js";
+import { currentBeltLookup, fillMissingBelts } from "../lib/belt_match.js";
 import { parseCSV } from "../lib/csv.js";
 import { looksLikeRankList, parseRankList } from "../lib/schedule_import.js";
 import { previewRankList } from "./active.js";
@@ -27,7 +27,8 @@ route("GET", "/api/belts", ({ query }) => {
 
 route("POST", "/api/belts", ({ body }) => {
   insertBelt(body);
-  return { ok: true };
+  // A belt-up here moves the Ninja's belt on the Active Ninjas tab up too.
+  return { ok: true, beltsUpdated: fillMissingBelts(conn) };
 });
 
 // Body: {names: [...]} -> the belt each of those Ninjas is on now ("" when none is recorded),

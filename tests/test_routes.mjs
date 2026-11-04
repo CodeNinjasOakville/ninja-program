@@ -19,7 +19,7 @@ const scenario = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/scenario.json
 const expected = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/expected.json"), "utf8"));
 
 // The Ninja/family link fields were added after the recording; tests/test_ninjas.mjs covers them.
-const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled"]);
+const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled", "beltsUpdated"]);
 function norm(v) {
   if (Array.isArray(v)) return v.map(norm);
   if (v && typeof v === "object" && !(v instanceof Uint8Array)) {
