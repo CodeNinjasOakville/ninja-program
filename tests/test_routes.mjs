@@ -18,7 +18,8 @@ globalThis.Date = class extends RealDate {
 const scenario = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/scenario.json"), "utf8"));
 const expected = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/expected.json"), "utf8"));
 
-const DROP = new Set(["created_at", "downloadUrl", "bytes"]);
+// The Ninja/family link fields were added after the recording; tests/test_ninjas.mjs covers them.
+const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled"]);
 function norm(v) {
   if (Array.isArray(v)) return v.map(norm);
   if (v && typeof v === "object" && !(v instanceof Uint8Array)) {

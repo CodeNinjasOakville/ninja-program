@@ -4,6 +4,7 @@ import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
 import { ApiError, nonBlankLines, pyStr, splitBulkLine, todayISO } from "../lib/util.js";
 import { readDicts } from "../lib/csv.js";
 import { sortLeadsByGbs } from "../lib/gbs_sort.js";
+import { emailKey, phoneKey } from "../lib/ninjas.js";
 
 export const LEAD_FIELDS = [
   "ninja_name", "parent_name", "phone_number", "email", "age",
@@ -31,17 +32,8 @@ const LEAD_HEADER_ALIASES = {
 
 // ---- Duplicate detection (same phone number or email; names are allowed to repeat) ----
 
-// "(905) 555-1234", "905.555.1234" and "+1 905 555 1234" all become "9055551234".
-export function phoneKey(value) {
-  let digits = pyStr(value).replace(/\D/g, "");
-  if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
-  return digits.length >= 7 ? digits : "";
-}
-
-export function emailKey(value) {
-  const email = pyStr(value).trim().toLowerCase();
-  return email.includes("@") ? email : "";
-}
+// "(905) 555-1234", "905.555.1234" and "+1 905 555 1234" all become "9055551234" (see js/lib/ninjas.js).
+export { phoneKey, emailKey };
 
 // Remembers phone/email of every lead (existing plus anything added during this request)
 // so one import can catch repeats both against the table and within the file itself.
@@ -117,6 +109,9 @@ route("GET", "/api/leads", ({ query }) => {
   } else {
     rows = conn.all("SELECT * FROM leads ORDER BY entry_number");
   }
+  // enrolled: the lead became a Ninja who has classes now (linked by js/lib/ninjas.js).
+  const enrolled = new Set(conn.all("SELECT DISTINCT ninja_uid FROM active_ninjas WHERE ninja_uid IS NOT NULL").map((r) => r.ninja_uid));
+  rows = rows.map((r) => ({ ...r, enrolled: !!r.ninja_uid && enrolled.has(r.ninja_uid) }));
   return query.sort === "gbs" ? sortLeadsByGbs(rows, todayISO()) : rows;
 });
 

@@ -5,6 +5,29 @@
 // numbered step to MIGRATIONS below so existing saved data is upgraded automatically.
 
 export const SCHEMA = `
+-- One row per family / paying customer (the "Customer" in a MyStudio export).
+-- uid is made in the browser (see js/lib/ninjas.js) so every sheet can point at it right away.
+CREATE TABLE IF NOT EXISTS families (
+    uid TEXT PRIMARY KEY,
+    name TEXT,
+    email TEXT,
+    phone TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One row per child (the "Participant" in a MyStudio export). This is where a Ninja's name,
+-- belt and family live. Every other sheet links here through its ninja_uid column:
+--   active_ninjas (their classes), belt_entries, receipts, jr_notes, leads.
+-- A Ninja with no classes in active_ninjas is not currently enrolled, but keeps their history.
+CREATE TABLE IF NOT EXISTS ninjas (
+    uid TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    belt TEXT DEFAULT '',
+    family_uid TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     entry_number INTEGER,
@@ -22,6 +45,7 @@ CREATE TABLE IF NOT EXISTS leads (
     post_gbs_follow_up TEXT,
     gbs_completed TEXT,
     lead_date TEXT,
+    ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -30,6 +54,7 @@ CREATE TABLE IF NOT EXISTS belt_entries (
     name TEXT NOT NULL,
     old_belt TEXT,
     new_belt TEXT,
+    ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -49,10 +74,12 @@ CREATE TABLE IF NOT EXISTS receipts (
     amount INTEGER NOT NULL,
     details TEXT,
     entry_type TEXT,
+    ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Currently-enrolled Ninjas and which weekly session they attend.
+-- One row per weekly class a Ninja attends (the table keeps its old name). ninja_uid says whose
+-- class it is; name and belt are copies of the Ninja's, kept up to date by js/lib/ninjas.js.
 -- is_ai marks a session that is an Artificial Intelligence class; is_jr a JR (ScratchJr) class.
 -- belt is the Ninja's belt, the same on every one of their rows (see js/lib/belt_match.js).
 CREATE TABLE IF NOT EXISTS active_ninjas (
@@ -64,6 +91,7 @@ CREATE TABLE IF NOT EXISTS active_ninjas (
     notes TEXT,
     belt TEXT DEFAULT '',
     is_jr INTEGER NOT NULL DEFAULT 0,
+    ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -74,6 +102,7 @@ CREATE TABLE IF NOT EXISTS jr_notes (
     name TEXT NOT NULL,
     note TEXT NOT NULL,
     author TEXT,
+    ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 `;
@@ -114,6 +143,14 @@ export const MIGRATIONS = [
       conn.run("ALTER TABLE active_ninjas ADD COLUMN is_jr INTEGER NOT NULL DEFAULT 0");
     }
   },
+  // 3: Ninja + family records; every sheet links to its Ninja. (The new tables come from SCHEMA.)
+  (conn) => {
+    for (const table of ["leads", "belt_entries", "receipts", "active_ninjas", "jr_notes"]) {
+      if (!conn.all(`PRAGMA table_info(${table})`).some((c) => c.name === "ninja_uid")) {
+        conn.run(`ALTER TABLE ${table} ADD COLUMN ninja_uid TEXT`);
+      }
+    }
+  },
 ];
 
 const SQLITE_MAGIC = "SQLite format 3\u0000";
@@ -121,6 +158,10 @@ const SQLITE_MAGIC = "SQLite format 3\u0000";
 let SQL = null;
 let database = null;
 let dirty = false;
+let version = 0; // goes up on every write; lets the router know when links need checking
+
+/** A number that changes whenever anything in the database has been written. */
+export function dataVersion() { return version; }
 
 /** Browser: pass the result of initSqlJs(). Tests pass a compatible shim. */
 export function setEngine(engine) {
@@ -160,17 +201,19 @@ export const conn = {
   run(sql, params) {
     database.run(sql, clean(params));
     dirty = true;
+    version++;
   },
   runMany(sql, rows) {
     rows.forEach((r) => this.run(sql, r));
   },
   /** Runs fn inside a transaction; rolls back if it throws. */
   transaction(fn) {
+    const before = version;
     database.run("BEGIN");
     try {
       const result = fn();
       database.run("COMMIT");
-      dirty = true;
+      if (version !== before) dirty = true;
       return result;
     } catch (error) {
       try { database.run("ROLLBACK"); } catch (_) { /* nothing to roll back */ }
@@ -203,6 +246,7 @@ export function openDatabase(bytes) {
   database = bytes && bytes.length ? new SQL.Database(bytes) : new SQL.Database();
   prepareSchema();
   dirty = false;
+  version++;
   return conn;
 }
 
@@ -241,7 +285,7 @@ export function describeImportable(bytes) {
   try {
     const res = probe.exec("SELECT name FROM sqlite_master WHERE type='table'");
     const tables = res.length ? res[0].values.map((v) => v[0]) : [];
-    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "receipts", "settings"].filter((t) => tables.includes(t));
+    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "receipts", "settings", "ninjas", "families"].filter((t) => tables.includes(t));
     if (!known.length) return { ok: false, reason: "That database doesn't look like a Ninja Program database." };
     return { ok: true, tables: known };
   } catch (error) {
@@ -253,8 +297,11 @@ export function describeImportable(bytes) {
 
 // ---------------------------------------------------------------------------------------------
 // Team-sync helpers (used by js/sync/sync.js). The local SQLite copy is a working copy of the
-// shared Supabase tables; "pk" is the column that identifies a row.
+// shared Supabase tables; "pk" is the column that identifies a row. Tables keyed by "uid" get
+// their key from the browser (so links never change); the others get their id from the server.
 export const SYNC_TABLES = {
+  families: { pk: "uid" },
+  ninjas: { pk: "uid" },
   leads: { pk: "id" },
   belt_entries: { pk: "id" },
   receipts: { pk: "id" },
@@ -310,6 +357,7 @@ export function replaceFromLegacy(bytes) {
       throw error;
     }
     dirty = true;
+    version++;
   } finally {
     src.close();
   }
@@ -330,4 +378,4 @@ export function renameRowIds(table, pairs) {
 
 /** For tests that simulate two people: take the open working copy out / put one back. */
 export function detachDatabase() { const d = database; database = null; return d; }
-export function attachDatabase(handle) { database = handle; }
+export function attachDatabase(handle) { database = handle; version++; }

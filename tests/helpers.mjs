@@ -21,7 +21,7 @@ setAssetLoader(async (p) => new Uint8Array(fs.readFileSync(path.join(ROOT, p))))
 
 let passed = 0, failed = 0;
 export function check(name, ok, detail) {
-  if (ok) { passed++; } else { failed++; console.log("FAIL:", name, detail !== undefined ? "\n   " + JSON.stringify(detail).slice(0, 600) : ""); }
+  if (ok) { passed++; } else { failed++; console.log("FAIL:", name, detail !== undefined ? "\n   " + JSON.stringify(detail).slice(0, Number(process.env.DETAIL || 600)) : ""); }
 }
 export function finish(label) {
   console.log(`${label}: ${passed} passed, ${failed} failed`);

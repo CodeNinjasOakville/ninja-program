@@ -614,5 +614,26 @@ td.dup-cell { background: #fff3d6; }
 .review-row .sessions-cell { flex: 1; }
 .review-similar { display: block; font-weight: 400; }
 .review-list table { width: 100%; }
+.review-family { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.review-changes { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.review-change { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+.review-change .session-pill { margin: 0; }
+.review-choices { flex-direction: column; flex: 0 0 48%; }
+.review-row .person-name .sessions-cell { display: block; margin-top: 3px; }
+.session-pill.adding { background: #dcf5e6; }
+.session-pill.removing { background: #fde2e2; text-decoration: line-through; }
+.lead-badge, .enrolled-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  background: #e3e8fb; color: var(--accent-dark); font-size: 10.5px; font-weight: 700; vertical-align: middle;
+}
+.enrolled-badge { background: #dcf5e6; color: #17643c; }
+.family-fields { margin: 12px 0; }
+.family-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 5px; }
+.family-head label { font-weight: 600; font-size: 12.5px; }
+.family-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+.family-grid input { width: 100%; box-sizing: border-box; }
+@media (max-width: 640px) { .family-grid { grid-template-columns: 1fr; } }
+.parent-cell { font-size: 12.5px; }
+.parent-cell .muted { display: block; font-size: 11.5px; }
 .belt-unknown { color: var(--muted); font-style: italic; }
 #activeBeltBanner { align-items: center; gap: 10px; }

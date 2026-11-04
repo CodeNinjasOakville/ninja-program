@@ -172,11 +172,23 @@ export function tidyName(raw) {
   return name.toLowerCase().replace(/(^|[\s\-'])([a-z])/g, (_, lead, ch) => lead + ch.toUpperCase());
 }
 
+// Header (lower-case) -> what it holds. Customer = the parent / person paying; participant = the Ninja.
+const CLASS_HEADER_ALIASES = {
+  "date": "date", "time": "time", "class name": "class", "class": "class",
+  "participant name": "participant", "participant": "participant",
+  "customer name": "customer", "customer": "customer",
+  "email address": "email", "email": "email", "customer email": "email",
+  "phone number": "phone", "phone": "phone", "customer phone": "phone",
+};
+
 function classScheduleColumns(rows) {
   if (!rows.length) return null;
   const columns = {};
-  rows[0].forEach((c, i) => { columns[cell(c).trim().toLowerCase()] = i; });
-  const need = ["date", "time", "class name", "participant name"];
+  rows[0].forEach((c, i) => {
+    const field = CLASS_HEADER_ALIASES[cell(c).trim().toLowerCase()];
+    if (field && !(field in columns)) columns[field] = i;
+  });
+  const need = ["date", "time", "class", "participant"];
   return need.every((h) => h in columns) ? columns : null;
 }
 
@@ -184,24 +196,32 @@ export function looksLikeClassSchedule(rows) {
   return !!classScheduleColumns(rows);
 }
 
-/** One entry per Ninja per weekly session: { name, day, start, is_ai, is_jr, classes: [...] } */
+/**
+ * One entry per Ninja per weekly session:
+ *   { name, day, start, is_ai, is_jr, classes: [...], family: { name, email, phone } }
+ * family is the customer (parent) from the file; blank fields when the file doesn't say.
+ */
 export function parseClassSchedule(rows) {
   const columns = classScheduleColumns(rows);
   if (!columns) return [];
-  const at = (row, header) => (columns[header] < row.length ? cell(row[columns[header]]).trim() : "");
+  const at = (row, field) => (field in columns && columns[field] < row.length ? cell(row[columns[field]]).trim() : "");
 
   const merged = new Map();
   for (const row of rows.slice(1)) {
-    const name = tidyName(at(row, "participant name"));
+    const name = tidyName(at(row, "participant"));
     if (!name) continue;
     const weekday = at(row, "date").split(",")[0].trim();
     const day = DAY_NAMES.has(weekday.toLowerCase()) ? weekday[0].toUpperCase() + weekday.slice(1).toLowerCase() : "";
     const start = slotStartMinutes(at(row, "time"));
-    const className = at(row, "class name");
+    const className = at(row, "class");
+    const family = { name: tidyName(at(row, "customer")), email: at(row, "email"), phone: at(row, "phone") };
 
-    const key = `${name.toLowerCase()}|${day}|${start}`;
-    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, is_jr: false, classes: [] });
+    // Two children with the same name in different families stay apart.
+    const who = `${name.toLowerCase()}|${family.email.toLowerCase() || family.phone.replace(/\D/g, "")}`;
+    const key = `${who}|${day}|${start}`;
+    if (!merged.has(key)) merged.set(key, { name, day, start, is_ai: false, is_jr: false, classes: [], family: { ...family } });
     const entry = merged.get(key);
+    for (const k of ["name", "email", "phone"]) if (!entry.family[k] && family[k]) entry.family[k] = family[k];
     if (AI_CLASS_RE.test(className)) entry.is_ai = true;
     if (JR_CLASS_RE.test(className)) entry.is_jr = true;
     if (className && !entry.classes.includes(className)) entry.classes.push(className);

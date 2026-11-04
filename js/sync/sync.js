@@ -15,6 +15,22 @@ const OVERLAP_MS = 120000;   // re-ask for the last 2 minutes each time, in case
 const PAGE = 1000;
 const CHUNK = 400;
 
+// The website was updated but the shared database wasn't (supabase/schema.sql not run yet):
+// say exactly that instead of "not found".
+export function explainSchemaError(error) {
+  const text = String((error && error.message) || "");
+  const missing = /could not find the table|relation .* does not exist|could not find the '.*' column/i.test(text) ||
+    (error && (error.code === "PGRST205" || error.code === "PGRST204" || error.code === "42P01" || error.code === "42703"));
+  if (!missing) return error;
+  const better = new Error(
+    "The shared database needs a one-time upgrade for this version of the app. " +
+    "In Supabase open SQL Editor, paste all of supabase/schema.sql and press Run, then reload this page. (" + text + ")"
+  );
+  better.status = error.status;
+  better.code = error.code;
+  return better;
+}
+
 const jsonOf = (cols, row) => JSON.stringify(cols.map((c) => (row[c] === undefined ? null : row[c])));
 
 export class Sync {
@@ -88,8 +104,9 @@ export class Sync {
       await this._push();
       this._set("synced");
     } catch (error) {
-      this._set("error", error);
-      if (initial) throw error;
+      const why = explainSchemaError(error);
+      this._set("error", why);
+      if (initial) throw why;
     }
   }
 
@@ -106,6 +123,7 @@ export class Sync {
   async _push() {
     for (const table of Object.keys(SYNC_TABLES)) {
       if (table === "settings") await this._pushSettings();
+      else if (SYNC_TABLES[table].pk === "uid") await this._pushKeyed(table);
       else await this._pushTable(table);
     }
   }
@@ -123,6 +141,30 @@ export class Sync {
       part.forEach((e) => known.set(e.row.key, e.json));
     }
     void cols;
+  }
+
+  // Tables whose key (uid) is made in the browser: new and edited rows are both sent as an
+  // "insert or update", so two people creating the same record end up with one row.
+  async _pushKeyed(table) {
+    const { map } = this._snapshot(table);
+    const known = this.known[table];
+    const changed = [...map.values()].filter((e) => known.get(e.row.uid) !== e.json);
+    const deletes = [...known.keys()].filter((uid) => !map.has(uid));
+    for (let i = 0; i < changed.length; i += CHUNK) {
+      const part = changed.slice(i, i + CHUNK);
+      await this.client.rest(`${table}?on_conflict=uid`, {
+        method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: part.map((e) => ({ ...e.row, deleted: false })),
+      });
+      part.forEach((e) => known.set(e.row.uid, e.json));
+    }
+    for (let i = 0; i < deletes.length; i += CHUNK) {
+      const part = deletes.slice(i, i + CHUNK);
+      await this.client.rest(`${table}?uid=in.(${part.map(encodeURIComponent).join(",")})`, {
+        method: "PATCH", headers: { Prefer: "return=minimal" }, body: { deleted: true },
+      });
+      part.forEach((uid) => known.delete(uid));
+    }
   }
 
   async _pushTable(table) {

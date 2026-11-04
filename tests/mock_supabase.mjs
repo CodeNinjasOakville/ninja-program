@@ -3,13 +3,16 @@
 // ids are handed out by the server, updated_at is set by the server, filters/paging work.
 export function createMockSupabase({ users = { "a@example.com": "passw0rd-long-1", "b@example.com": "passw0rd-long-2" }, tokenSeconds = 3600 } = {}) {
   const URL_ = "https://mock.supabase.co";
-  const tables = { leads: [], belt_entries: [], receipts: [], active_ninjas: [], jr_notes: [], settings: [] };
+  const tables = { families: [], ninjas: [], leads: [], belt_entries: [], receipts: [], active_ninjas: [], jr_notes: [], settings: [] };
+  // Tables keyed by a uid the browser makes (insert-or-update), like the real ones in schema.sql.
+  const KEYED = new Set(["families", "ninjas"]);
   const identity = { leads: 0, belt_entries: 0, receipts: 0, active_ninjas: 0, jr_notes: 0 };
   const defaults = {
-    leads: { entry_number: null, parent_name: null, phone_number: null, email: null, age: null, gbs_type: null, staff_name: null, coding_experience: null, comments: null, gbs_date: null, gbs_time: null, post_gbs_follow_up: null, gbs_completed: null, lead_date: null },
-    belt_entries: { old_belt: null, new_belt: null }, receipts: { details: null, entry_type: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null, belt: "", is_jr: 0 }, jr_notes: { author: null }, settings: {},
+    families: { name: null, email: null, phone: null }, ninjas: { belt: "", family_uid: null, notes: null },
+    leads: { ninja_uid: null, entry_number: null, parent_name: null, phone_number: null, email: null, age: null, gbs_type: null, staff_name: null, coding_experience: null, comments: null, gbs_date: null, gbs_time: null, post_gbs_follow_up: null, gbs_completed: null, lead_date: null },
+    belt_entries: { old_belt: null, new_belt: null, ninja_uid: null }, receipts: { details: null, entry_type: null, ninja_uid: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null, belt: "", is_jr: 0, ninja_uid: null }, jr_notes: { author: null, ninja_uid: null }, settings: {},
   };
-  const notNull = { leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], jr_notes: ["name", "note"], settings: ["key", "value"] };
+  const notNull = { families: ["uid"], ninjas: ["uid", "name"], leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], jr_notes: ["name", "note"], settings: ["key", "value"] };
   const tokens = new Map();     // access token -> { email, expires }
   const refresh = new Map();    // refresh token -> email
   const stats = { requests: 0, restCalls: 0, failNext: 0, log: [] };
@@ -76,7 +79,7 @@ export function createMockSupabase({ users = { "a@example.com": "passw0rd-long-1
     if (!m || !tables[m[1]]) return respond(404, { message: "not found" });
     if (!who) return respond(401, { code: "PGRST301", message: "JWT expired" });
     stats.restCalls++;
-    const t = m[1], rows = tables[t], pk = t === "settings" ? "key" : "id";
+    const t = m[1], rows = tables[t], pk = t === "settings" ? "key" : KEYED.has(t) ? "uid" : "id";
     const prefer = headers.prefer || "";
 
     if (method === "GET") {
@@ -91,7 +94,12 @@ export function createMockSupabase({ users = { "a@example.com": "passw0rd-long-1
       const out = [];
       for (const item of list) {
         for (const c of notNull[t]) if (item[c] === undefined || item[c] === null) return respond(400, { code: "23502", message: `null value in column "${c}"` });
-        if (t === "settings") {
+        if (KEYED.has(t)) {
+          const ex = rows.find((r) => r.uid === item.uid);
+          if (ex) { if (!prefer.includes("merge-duplicates")) return respond(409, { code: "23505", message: "duplicate key" }); Object.assign(ex, item, { updated_at: tick() }); out.push(ex); continue; }
+          const row = { ...defaults[t], ...item, created_at: item.created_at ?? "2026-10-09 12:00:00", updated_at: tick(), deleted: item.deleted ?? false };
+          rows.push(row); out.push(row);
+        } else if (t === "settings") {
           const ex = rows.find((r) => r.key === item.key);
           if (ex) { if (!prefer.includes("merge-duplicates")) return respond(409, { code: "23505", message: "duplicate key" }); Object.assign(ex, item, { updated_at: tick() }); out.push(ex); continue; }
           const row = { ...item, updated_at: tick() }; rows.push(row); out.push(row);

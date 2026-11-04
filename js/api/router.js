@@ -5,11 +5,21 @@
 // route("GET", "/api/thing/:id", ({ params, query, body, file }) => { ...return data... }).
 // Throw new ApiError("message", 400) for user-facing errors.
 
-import { takeDirty } from "../core/db.js";
+import { conn, dataVersion, takeDirty } from "../core/db.js";
 import { ApiError } from "../lib/util.js";
+import { linkEverything } from "../lib/ninjas.js";
 
 const routes = [];
 let changeListener = () => {};
+let linkedAt = -1; // dataVersion() when every sheet was last checked against the Ninja records
+
+// After anything changed (here or from a teammate), make sure every sheet points at the right Ninja
+// before the next request reads it. See js/lib/ninjas.js.
+function keepLinksCurrent() {
+  if (linkedAt === dataVersion()) return;
+  conn.transaction(() => linkEverything(conn));
+  linkedAt = dataVersion();
+}
 
 /** Called after any request that changed the database (used to trigger a sync). */
 export function onDataChanged(fn) { changeListener = fn; }
@@ -38,6 +48,7 @@ export async function handleRequest(method, url, body, file) {
     });
 
     try {
+      keepLinksCurrent();
       const result = await r.handler({ params, query, body: body || {}, file });
       if (takeDirty()) changeListener();
       return result;

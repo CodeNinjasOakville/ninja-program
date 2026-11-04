@@ -105,7 +105,7 @@
     <!-- ============ ACTIVE NINJAS ============ -->
     <section id="tab-active" class="tab-panel">
       <div class="panel-header">
-        <input type="text" id="activeSearch" placeholder="Search name, day, time, &quot;AI&quot; or &quot;JR&quot;&hellip;">
+        <input type="text" id="activeSearch" placeholder="Search name, parent, day, time, &quot;AI&quot; or &quot;JR&quot;&hellip;">
         <div class="spacer"></div>
         <span class="selection-count" id="activeSelectionCount"></span>
         <button class="btn-danger" id="deleteSelectedActiveBtn" style="display:none;">Delete Selected</button>
@@ -121,8 +121,9 @@
         CSV import accepts a flat Name/Day/Time Slot/AI file, the
         wide weekly "Session Schedule" export straight from the spreadsheet, or the
         MyStudio "All classes schedule" export (Class schedule &rarr; Export &rarr; next 14 days) -
-        it's auto-detected. The MyStudio export only adds Ninjas who aren't here yet, and
-        shows you the list first. A session marked <span class="ai-badge">AI</span> is an
+        it's auto-detected. The MyStudio export saves each Ninja's parent (the customer) and
+        compares the file with the roster - new Ninjas, changed classes, Ninjas who are no longer
+        in it - and shows you everything first. A session marked <span class="ai-badge">AI</span> is an
         Artificial Intelligence class; the Ninja stays in the list, just flagged.
         A <span class="jr-badge">JR</span> session is a JR (ScratchJr) class - the
         <b>JR Ninjas</b> view lists them with notes on what each one is working on.
@@ -144,7 +145,7 @@
           <thead>
             <tr>
               <th><input type="checkbox" id="activeSelectAll"></th>
-              <th>Name</th><th>Belt</th><th>Classes</th><th>Sessions</th><th></th>
+              <th>Name</th><th>Parent</th><th>Belt</th><th>Classes</th><th>Sessions</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -344,6 +345,17 @@
         <div class="hint">Left blank, it is filled in from the Belts tab. A belt chosen here is never changed by the Belts tab.</div>
         <select id="af_belt"></select>
       </div>
+      <div class="family-fields">
+        <div class="family-head">
+          <label>Parent / guardian (the MyStudio customer)</label>
+          <span class="muted" id="af_family_note"></span>
+        </div>
+        <div class="family-grid">
+          <input type="text" id="af_parent_name" placeholder="Name" autocomplete="off">
+          <input type="email" id="af_parent_email" placeholder="Email" autocomplete="off">
+          <input type="text" inputmode="tel" id="af_parent_phone" placeholder="Phone" autocomplete="off">
+        </div>
+      </div>
       <div class="sessions-head">
         <label>Sessions</label>
         <span class="muted">One row per hour/block. Add a row for each day they come, or for a regular hour and an AI hour.</span>
@@ -389,17 +401,21 @@
       </div>
       <div id="rosterSimilarSection">
         <div class="review-head"><span id="rosterSimilarTitle"></span></div>
-        <p class="muted">These look like someone already on the roster under a shorter name.
-          Tick one only if it really is a different Ninja.</p>
+        <p class="muted">These look like someone already on the roster under a shorter name. Pick "Same Ninja"
+          so future imports recognise them by their parent, or add them only if it really is a different child.</p>
         <div class="review-list" id="rosterSimilarList"></div>
       </div>
-      <div id="rosterJrSection">
-        <div class="review-head">
-          <label><input type="checkbox" id="rosterJrAll" checked> <span id="rosterJrTitle"></span></label>
-        </div>
-        <p class="muted">Already on the roster, in a JR class in this file. Only the JR mark is added to
-          that class - nothing else about them changes.</p>
-        <div class="review-list" id="rosterJrList"></div>
+      <div id="rosterUpdateSection">
+        <div class="review-head"><span id="rosterUpdateTitle"></span></div>
+        <p class="muted">Ninjas already here whose classes or parent details are different in this file.
+          Tick what to change. A class missing from the file is only ticked when the file covers that day.</p>
+        <div class="review-list" id="rosterUpdateList"></div>
+      </div>
+      <div id="rosterMissingSection">
+        <div class="review-head"><span id="rosterMissingTitle"></span></div>
+        <p class="muted">On the roster but not in this file at all. Tick a Ninja to remove their classes.
+          Their belt, rewards, notes and parent details are kept, so they are recognised if they come back.</p>
+        <div class="review-list" id="rosterMissingList"></div>
       </div>
       <details id="rosterExistingSection">
         <summary class="muted" id="rosterExistingTitle"></summary>

@@ -112,6 +112,23 @@ check("JR mark and note reach the other person", (as(B),
   conn.get("SELECT is_jr FROM active_ninjas WHERE name='Zed'").is_jr === 1 &&
   conn.all("SELECT * FROM jr_notes WHERE name='Zed' AND note='Working on the animal story'").length === 1));
 
+// ---- Ninja records: two people add the same child at the same moment -> one shared record
+await api(A, "POST", "/api/active-ninjas", { name: "Twin Test", day: "Friday", time_slot: "4 PM" });
+await api(B, "POST", "/api/active-ninjas", { name: "twin test", day: "Saturday", time_slot: "4 PM" });
+await sync(A); await sync(B); await sync(A);
+const twins = mock.tables.ninjas.filter((n) => n.name.toLowerCase() === "twin test");
+check("the same Ninja made by two people is one record on the server", twins.length === 1, mock.tables.ninjas);
+check("both classes point at it", mock.tables.active_ninjas.filter((r) => r.name.toLowerCase() === "twin test" && !r.deleted).every((r) => r.ninja_uid === twins[0].uid));
+const twinUid = twins[0].uid;
+await api(B, "POST", "/api/belts", { name: "Twin Test", old_belt: "White", new_belt: "Yellow" });
+await sync(B); await sync(A);
+const twinClasses = (as(A), conn.all("SELECT id, day, time_slot FROM active_ninjas WHERE ninja_uid = ?", [twinUid]));
+await api(A, "POST", "/api/active-ninjas/person", { uid: twinUid, name: "Twin Tester", sessions: twinClasses });
+await sync(A); await sync(B);
+check("a rename reaches the other person's Belts tab", (as(B), conn.get("SELECT name FROM belt_entries WHERE ninja_uid = ?", [twinUid])?.name === "Twin Tester"),
+  (as(B), conn.all("SELECT * FROM belt_entries")));
+await sync(A);
+
 // ---- idle: nothing to send
 const before = mock.stats.restCalls;
 await sync(A);

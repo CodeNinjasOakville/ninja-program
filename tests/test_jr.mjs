@@ -28,10 +28,12 @@ const zoe = preview.people.find((p) => p.name === "Zoe Chan");
 check("JR class is flagged for a new Ninja (repeats merged)", zoe && zoe.sessions.length === 1 && zoe.sessions[0].is_jr === true, zoe);
 check("'Junior ...' class counts as JR", preview.people.find((p) => p.name === "Leo Kim").sessions[0].is_jr === true);
 check("CREATE class is not JR", preview.people.find((p) => p.name === "Ava Diaz").sessions[0].is_jr === false);
+const mia = preview.updates.find((u) => u.name === "Mia Lee");
 check("existing Ninja's JR class is offered for marking",
-  JSON.stringify(preview.jrMarks) === JSON.stringify([{ name: "Mia Lee", day: "Monday", time_slot: "4 PM - 5 PM" }]), preview.jrMarks);
+  mia && mia.marks.length === 1 && mia.marks[0].day === "Monday" && mia.marks[0].time_slot === "4 PM - 5 PM" && mia.marks[0].set_jr === true, preview.updates);
+const marksOnly = preview.updates.map((u) => ({ uid: u.uid, marks: u.marks }));
 
-const confirmed = await call("POST", "/api/active-ninjas/import/confirm", { people: preview.people, jrMarks: preview.jrMarks });
+const confirmed = await call("POST", "/api/active-ninjas/import/confirm", { people: preview.people, updates: marksOnly });
 check("confirm adds new Ninjas and marks the existing JR class",
   confirmed.addedNinjas === 3 && confirmed.markedJr === 1, confirmed);
 const isJr = (name) => conn.all("SELECT is_jr FROM active_ninjas WHERE name = ?", [name]).map((r) => r.is_jr);
@@ -39,8 +41,8 @@ check("Mia's class is now JR", JSON.stringify(isJr("Mia Lee")) === "[1]", isJr("
 check("Sam's class stays not JR", JSON.stringify(isJr("Sam Park")) === "[0]", isJr("Sam Park"));
 check("Zoe was added as JR", JSON.stringify(isJr("Zoe Chan")) === "[1]", isJr("Zoe Chan"));
 
-// Marking only: no new Ninjas picked is fine, and a second run marks nothing more.
-const again = await call("POST", "/api/active-ninjas/import/confirm", { people: [], jrMarks: preview.jrMarks });
+// Marking only: a second run marks nothing more.
+const again = await call("POST", "/api/active-ninjas/import/confirm", { updates: marksOnly });
 check("marking again changes nothing", again.markedJr === 0 && again.addedNinjas === 0, again);
 
 // Search "jr" finds every JR class.

@@ -1,4 +1,7 @@
--- Run this ONCE in Supabase: SQL Editor -> New query -> paste -> Run.
+-- Run this in Supabase: SQL Editor -> New query -> paste ALL of it -> Run.
+-- It is safe to run again: it only adds what is missing. Run it again whenever the app is updated
+-- with new tables/columns (e.g. the Ninja + family records added in November 2026), BEFORE
+-- publishing the new website files.
 -- Same tables as the original app. Every row also has updated_at (set automatically) so each browser
 -- can ask "what changed since I last looked?". Deleted rows are only marked deleted so that other
 -- browsers find out about the deletion.
@@ -45,6 +48,24 @@ create table if not exists public.jr_notes (
   updated_at timestamptz not null default now(), deleted boolean not null default false
 );
 
+-- Added later (Ninja + family records). One row per child and one per paying customer (parent),
+-- keyed by a uid the browser makes; every other table points at its child through ninja_uid.
+create table if not exists public.families (
+  uid text primary key, name text, email text, phone text,
+  created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at timestamptz not null default now(), deleted boolean not null default false
+);
+create table if not exists public.ninjas (
+  uid text primary key, name text not null, belt text default '', family_uid text, notes text,
+  created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at timestamptz not null default now(), deleted boolean not null default false
+);
+alter table public.leads add column if not exists ninja_uid text;
+alter table public.belt_entries add column if not exists ninja_uid text;
+alter table public.receipts add column if not exists ninja_uid text;
+alter table public.active_ninjas add column if not exists ninja_uid text;
+alter table public.jr_notes add column if not exists ninja_uid text;
+
 create table if not exists public.settings (
   key text primary key, value text not null,
   updated_at timestamptz not null default now()
@@ -56,6 +77,8 @@ create index if not exists receipts_updated on public.receipts (updated_at);
 create index if not exists active_ninjas_updated on public.active_ninjas (updated_at);
 create index if not exists jr_notes_updated on public.jr_notes (updated_at);
 create index if not exists settings_updated on public.settings (updated_at);
+create index if not exists families_updated on public.families (updated_at);
+create index if not exists ninjas_updated on public.ninjas (updated_at);
 
 create or replace function public.touch_updated_at() returns trigger language plpgsql as $$
 begin new.updated_at = now(); return new; end $$;
@@ -63,7 +86,7 @@ begin new.updated_at = now(); return new; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','settings'] loop
+  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','settings','families','ninjas'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before insert or update on public.%I for each row execute function public.touch_updated_at()', t);
     -- Only signed-in team members can read or change anything. Visitors who are not signed in get nothing.

@@ -31,9 +31,12 @@ export function activePeople(conn) {
   return people;
 }
 
-/** Puts `belt` on every session row of that Ninja (a belt belongs to the person, not a class). */
+/** Puts `belt` on that Ninja's record and every one of their classes (a belt belongs to the person). */
 export function setPersonBelt(conn, name, belt) {
   const key = nameKey(name);
+  for (const n of conn.all("SELECT uid, name FROM ninjas")) {
+    if (nameKey(n.name) === key) conn.run("UPDATE ninjas SET belt = ? WHERE uid = ?", [belt, n.uid]);
+  }
   for (const row of conn.all("SELECT id, name FROM active_ninjas")) {
     if (nameKey(row.name) === key) conn.run("UPDATE active_ninjas SET belt = ? WHERE id = ?", [belt, row.id]);
   }
