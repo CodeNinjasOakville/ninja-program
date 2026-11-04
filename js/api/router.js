@@ -17,7 +17,12 @@ let linkedAt = -1; // dataVersion() when every sheet was last checked against th
 // before the next request reads it. See js/lib/ninjas.js.
 function keepLinksCurrent() {
   if (linkedAt === dataVersion()) return;
-  conn.transaction(() => linkEverything(conn));
+  try {
+    conn.transaction(() => linkEverything(conn));
+  } catch (error) {
+    // Linking is a tidy-up. If it fails, the screens must still show everything.
+    console.error("Could not link the sheets to their Ninjas:", error);
+  }
   linkedAt = dataVersion();
 }
 

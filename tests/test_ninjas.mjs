@@ -131,5 +131,14 @@ await call("POST", "/api/belts", { name: "emma park", old_belt: "White", new_bel
 await call("GET", "/api/belts");
 check("a new belt entry links to the Ninja", conn.get("SELECT ninja_uid, name FROM belt_entries WHERE lower(name) = 'emma park'").ninja_uid === ninjaOf("Emma Park").uid);
 
+// ---- If linking ever fails, the lists still load.
+const leadCount = conn.get("SELECT COUNT(*) AS c FROM leads").c;
+conn.run("DROP TABLE ninjas");
+const realError = console.error; console.error = () => {};
+let stillThere = null;
+try { stillThere = await call("GET", "/api/leads"); } catch (e) { stillThere = e; }
+console.error = realError;
+check("a linking failure doesn't hide the leads", Array.isArray(stillThere) && stillThere.length === leadCount, stillThere && stillThere.message);
+
 closeDatabase();
 finish("Ninja + family records");
