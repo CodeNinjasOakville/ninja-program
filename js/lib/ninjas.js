@@ -132,7 +132,7 @@ export function renameNinja(conn, uid, name) {
 }
 
 // Sheets that keep a copy of the Ninja's name in a "name" column.
-const NAMED_SHEETS = ["active_ninjas", "belt_entries", "receipts", "jr_notes"];
+const NAMED_SHEETS = ["active_ninjas", "belt_entries", "receipts", "jr_notes", "print_queue"];
 
 // ------------------------------------------------------------------ keeping links right
 
@@ -141,7 +141,7 @@ const NAMED_SHEETS = ["active_ninjas", "belt_entries", "receipts", "jr_notes"];
  * writes when something is out of step, and every browser reaches the same answer.
  *  - Every class belongs to a Ninja (one is made for a name seen for the first time).
  *  - Classes carry the Ninja's current name and belt.
- *  - Belts / rewards / JR notes rows with no link are linked when exactly one Ninja has that name;
+ *  - Belts / rewards / JR notes / print queue rows with no link are linked when exactly one Ninja has that name;
  *    linked rows carry the Ninja's current name.
  *  - Leads are linked to the Ninja they became (same name, or same family email/phone + first name).
  */
@@ -181,8 +181,8 @@ export function linkEverything(conn) {
     }
   }
 
-  // 2. Belts, rewards and JR notes
-  for (const table of ["belt_entries", "receipts", "jr_notes"]) {
+  // 2. Belts, rewards, JR notes and the 3D print queue
+  for (const table of ["belt_entries", "receipts", "jr_notes", "print_queue"]) {
     for (const row of conn.all(`SELECT id, name, ninja_uid FROM ${table}`)) {
       let n = byUid.get(row.ninja_uid);
       if (!n && !row.ninja_uid) {

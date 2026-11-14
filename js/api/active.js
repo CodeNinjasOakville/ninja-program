@@ -8,6 +8,7 @@ import {
 } from "../lib/schedule_import.js";
 import { beltFromRank, buildEarned, formatBeltName, getBeltOrder, getSummary, normalizeBelt } from "../lib/rewards.js";
 import { parseCSV } from "../lib/csv.js";
+import { printsForNinja } from "./prints.js";
 import { LINKS_SETTING, fillMissingBelts, matchBelts, nameKey } from "../lib/belt_match.js";
 import {
   emailKey, ensureNinja, findFamily, findOrCreateFamily, firstName, getFamily, getNinja, leadMatch,
@@ -117,6 +118,7 @@ route("GET", "/api/ninjas/:key", ({ params }) => {
     levels: earnedName ? buildEarned(conn)[earnedName].level_ups : 0,
     given: mine("receipts", "id DESC"),
     notes: mine("jr_notes", "created_at DESC, id DESC"),
+    prints: printsForNinja(ninja),
     leads: conn.all("SELECT id, entry_number, ninja_name, gbs_date, lead_date FROM leads WHERE ninja_uid = ? ORDER BY entry_number", [ninja.uid]),
   };
 });

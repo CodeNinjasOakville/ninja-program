@@ -311,7 +311,7 @@ document.getElementById("tagBeltsClose").addEventListener("click", () => {
 // PAGES: Ninjas, Belts & Rewards (3 parts), Leads, Settings (+ account)
 // ================================================================
 
-const PAGE_PANELS = { ninjas: ["active"], rewards: ["rewards", "belts", "history"], leads: ["leads"], settings: ["settings", "security"] };
+const PAGE_PANELS = { ninjas: ["active"], rewards: ["rewards", "belts", "history", "prints"], leads: ["leads"], settings: ["settings", "security"] };
 let rewardsPart = "rewards"; // which part of Belts & Rewards is showing
 
 function loadPanel(panel) {
@@ -320,6 +320,7 @@ function loadPanel(panel) {
   if (panel === "belts") loadBelts();
   if (panel === "rewards") loadRewards();
   if (panel === "history") loadHistory();
+  if (panel === "prints") loadPrints();
   if (panel === "active") loadActiveNinjas();
 }
 
@@ -408,6 +409,7 @@ async function openNinjaProfile({ uid, name }) {
     if (old) document.getElementById("bf_old_belt").value = old;
   });
   if (ninja.owed) action("Give rewards", true, () => openGiveRewards(ninja.name, ninja.owed));
+  action("Add a 3D print", false, () => openPrintModal(null, ninja.name));
   action("Print totem tag", false, () => generateTotemTagsByName([ninja.name], "activeImportBanner"));
   if (ninja.classes.some((c) => c.is_jr) || ninja.notes.length) action("JR notes", false, () => openJrNotes(ninja.name));
 
@@ -460,6 +462,23 @@ async function openNinjaProfile({ uid, name }) {
     text: `${shortDate(r.date)}  ${r.amount} × ${r.reward_type}` + (r.details ? ` (${r.details})` : "") }));
   if (ninja.given.length > 8) given.push(el("div", { class: "muted", text: `and ${ninja.given.length - 8} more (Belts & Rewards → Rewards given)` }));
   body.appendChild(profileCard("Rewards given", given));
+
+  // 3D prints: the ones waiting (with their place in the whole queue), then the last few printed.
+  const prints = [];
+  ninja.prints.queued.forEach((p) => {
+    const line = el("div", { class: "profile-print" + (p.position === 1 ? " print-next" : "") }, [
+      el("div", {}, [el("b", { text: `#${p.position} in queue` }), document.createTextNode(`  ${printTitle(p)}`)]),
+      el("div", { class: "muted", text: `promised ${p.promised_date}` + (p.waiting_days ? ` · waiting ${p.waiting_days} day${p.waiting_days === 1 ? "" : "s"}` : "") }),
+      printModelCell(p, "profileError"),
+    ]);
+    const done = el("button", { class: "btn-secondary btn-small", type: "button", text: "✔ Printed" });
+    done.addEventListener("click", () => openPrintedModal(p));
+    line.appendChild(done);
+    prints.push(line);
+  });
+  ninja.prints.printed.slice(0, 3).forEach((p) => prints.push(el("div", { class: "profile-line muted",
+    text: `Printed ${p.printed_date}  ${printTitle(p)}` })));
+  body.appendChild(profileCard("3D prints", prints, "No 3D prints queued. Use \"Add a 3D print\" when they pick one."));
 
   if (ninja.notes.length || ninja.classes.some((c) => c.is_jr)) {
     const notes = ninja.notes.slice(0, 3).map((n) => el("div", { class: "profile-line",
@@ -2800,6 +2819,269 @@ document.getElementById("clearCertificatesBtn").addEventListener("click", async 
 
 document.getElementById("refreshHistoryBtn").addEventListener("click", loadHistory);
 document.getElementById("historySearch").addEventListener("input", () => loadHistory());
+
+// ================================================================
+// 3D PRINT QUEUE (Belts & Rewards -> 3D print queue; rules in js/api/prints.js)
+// ================================================================
+
+let printsView = "queued";   // "queued" | "printed"
+let editingPrint = null;     // the print in the add/edit window (null = adding)
+let printedFor = null;       // the print in the "mark as printed" window
+const PRINT_FILE_LIMIT = 2 * 1024 * 1024; // same as MAX_FILE_BYTES in js/lib/print_queue.js
+
+const todayInput = () => {
+  const d = new Date(), p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+const printSizeText = (bytes) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : bytes >= 1024 ? `${Math.round(bytes / 1024)} KB` : `${bytes} bytes`;
+const printTitle = (p) => p.description || p.file_name || "3D print";
+
+// Saves a print's file to the computer.
+async function downloadPrintFile(print, bannerId) {
+  try {
+    const file = await api(`/api/prints/${print.id}/file`);
+    const raw = atob(file.file_data);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    // Always saved as a download, never opened in the page.
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+    const link = el("a", { href: url, download: file.file_name || "model" });
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (error) {
+    showBanner(bannerId, error.message, "error");
+  }
+}
+
+// The link and/or file of a print, as small buttons.
+function printModelCell(print, bannerId) {
+  const cell = el("div", { class: "print-model" });
+  if (print.model_link) {
+    let host = print.model_link;
+    try { host = new URL(print.model_link).hostname.replace(/^www\./, ""); } catch (_) { /* shown as is */ }
+    cell.appendChild(el("a", { href: print.model_link, target: "_blank", rel: "noopener noreferrer", title: print.model_link, text: `🔗 ${host}` }));
+  }
+  if (print.has_file) {
+    const btn = el("button", { class: "link-btn", type: "button", title: "Save the model file", text: `⬇ ${print.file_name} (${printSizeText(print.file_size || 0)})` });
+    btn.addEventListener("click", () => downloadPrintFile(print, bannerId));
+    cell.appendChild(btn);
+  }
+  if (!cell.childNodes.length) cell.appendChild(el("span", { class: "muted", text: "No link or file yet" }));
+  return cell;
+}
+
+async function loadPrints() {
+  let data;
+  try {
+    data = await api("/api/prints");
+  } catch (error) {
+    showBanner("printsBanner", error.message, "error");
+    return;
+  }
+  const queued = printsView === "queued";
+  document.getElementById("printsQueuedBtn").classList.toggle("active", queued);
+  document.getElementById("printsPrintedBtn").classList.toggle("active", !queued);
+  document.getElementById("printsQueuedBtn").textContent = `Queue (${data.queued.length})`;
+  document.getElementById("printsPrintedBtn").textContent = `Printed (${data.printed.length})`;
+  document.getElementById("printsDateHead").textContent = queued ? "Promised" : "Printed";
+
+  const all = queued ? data.queued : data.printed;
+  const search = document.getElementById("printsSearch").value;
+  const rows = all.filter((p) => matchesSearch([p.name, p.description, p.file_name, p.model_link, p.promised_date, p.printed_date], search));
+  document.getElementById("printsCountLabel").textContent = queued && data.queued.length
+    ? `Up next: ${data.queued[0].name} (${printTitle(data.queued[0])})` : "";
+
+  const empty = document.getElementById("printsEmpty");
+  empty.style.display = rows.length ? "none" : "block";
+  empty.textContent = all.length ? "No prints match this search."
+    : queued ? "No prints waiting. Press \"+ Add a print\" when a Ninja picks one." : "Nothing has been printed yet.";
+
+  const tbody = document.querySelector("#printsTable tbody");
+  tbody.innerHTML = "";
+  rows.forEach((p) => {
+    const tr = el("tr", { class: queued && p.position === 1 ? "print-next" : "" });
+    tr.appendChild(el("td", { class: "print-pos", text: queued ? String(p.position) : "" }));
+    const who = el("td", {}, [ninjaLink(p.name, p.ninja_uid)]);
+    if (queued && p.position === 1) who.appendChild(el("div", { class: "print-next-badge", text: "Up next" }));
+    tr.appendChild(who);
+    tr.appendChild(el("td", { class: "print-desc", text: p.description || "" }));
+    tr.appendChild(el("td", {}, [printModelCell(p, "printsBanner")]));
+    const when = el("td", { text: queued ? p.promised_date : p.printed_date });
+    if (queued && p.waiting_days) when.appendChild(el("div", { class: "muted", text: `waiting ${p.waiting_days} day${p.waiting_days === 1 ? "" : "s"}` }));
+    if (!queued) when.appendChild(el("div", { class: "muted", text: `promised ${p.promised_date}` }));
+    tr.appendChild(when);
+
+    const actions = el("td", { class: "print-actions" });
+    if (queued) {
+      const done = el("button", { class: p.position === 1 ? "btn-primary" : "btn-secondary", type: "button", text: "✔ Printed" });
+      done.addEventListener("click", () => openPrintedModal(p));
+      actions.appendChild(done);
+    } else {
+      const back = el("button", { class: "btn-secondary", type: "button", title: "Put it back in the queue (marked printed by mistake)", text: "↩ Back to queue" });
+      back.addEventListener("click", async () => {
+        await api(`/api/prints/${p.id}/unprinted`, { method: "POST" });
+        showBanner("printsBanner", `${printTitle(p)} for ${p.name} is back in the queue. ` +
+          "Anything already recorded under Rewards given stays there (undo it there if needed).", "success");
+        loadPrints();
+      });
+      actions.appendChild(back);
+    }
+    const edit = el("button", { class: "btn-icon btn-edit", type: "button", title: "Edit", text: "✎" });
+    edit.addEventListener("click", () => openPrintModal(p));
+    const del = el("button", { class: "btn-icon", type: "button", title: "Delete", text: "✖" });
+    del.addEventListener("click", async () => {
+      const ok = await confirmDialog("Delete print", `Delete "${printTitle(p)}" for ${p.name}${p.has_file ? " and its file" : ""}? This can't be undone.`);
+      if (!ok) return;
+      await api(`/api/prints/${p.id}`, { method: "DELETE" });
+      loadPrints();
+    });
+    actions.append(edit, del);
+    tr.appendChild(actions);
+    tbody.appendChild(tr);
+  });
+}
+
+function setPrintsView(view) {
+  printsView = view;
+  loadPrints();
+}
+document.getElementById("printsQueuedBtn").addEventListener("click", () => setPrintsView("queued"));
+document.getElementById("printsPrintedBtn").addEventListener("click", () => setPrintsView("printed"));
+document.getElementById("printsSearch").addEventListener("input", () => loadPrints());
+document.getElementById("addPrintBtn").addEventListener("click", () => openPrintModal(null));
+
+// ---- Add / edit window
+
+let printNinjas = [];
+function updatePrintNinjaHint() {
+  const typed = personKey(document.getElementById("pf_name").value);
+  const n = printNinjas.find((x) => personKey(x.name) === typed);
+  document.getElementById("pf_owed_hint").textContent = n
+    ? `${n.prints_owed} 3D print${n.prints_owed === 1 ? "" : "s"} owed on Rewards owed · ${n.queued} in the queue now` : "";
+}
+document.getElementById("pf_name").addEventListener("input", updatePrintNinjaHint);
+
+async function openPrintModal(print, ninjaName) {
+  editingPrint = print;
+  hideBanner("printFormError");
+  document.getElementById("printModalTitle").textContent = print ? "Edit 3D print" : "Add a 3D print";
+  document.getElementById("printModalSubmit").textContent = print ? "Save" : "Add to queue";
+  document.getElementById("printModalSubmit").disabled = false;
+  document.getElementById("pf_name").value = print ? print.name : ninjaName || "";
+  document.getElementById("pf_description").value = print ? print.description || "" : "";
+  document.getElementById("pf_link").value = print ? print.model_link || "" : "";
+  document.getElementById("pf_file").value = "";
+  document.getElementById("pf_promised").value = print ? print.promised_date : todayInput();
+  document.getElementById("pf_printed_field").style.display = print && print.printed_date ? "" : "none";
+  document.getElementById("pf_printed").value = print && print.printed_date ? print.printed_date : "";
+
+  const current = document.getElementById("pf_current_file");
+  current.innerHTML = "";
+  if (print && print.has_file) {
+    const remove = el("input", { type: "checkbox", id: "pf_remove_file" });
+    current.append(
+      el("span", { text: `Saved: ${print.file_name} (${printSizeText(print.file_size || 0)}). Choose another file to replace it, or ` }),
+      el("label", {}, [remove, document.createTextNode(" remove it")]));
+  }
+
+  document.getElementById("printModalOverlay").classList.add("open");
+  try {
+    printNinjas = await api("/api/prints/ninjas");
+    const list = document.getElementById("printNinjaOptions");
+    list.innerHTML = "";
+    printNinjas.forEach((n) => list.appendChild(el("option", { value: n.name,
+      label: n.prints_owed ? `${n.prints_owed} print${n.prints_owed === 1 ? "" : "s"} owed` : "" })));
+    updatePrintNinjaHint();
+  } catch (_) { /* the names are only suggestions */ }
+  document.getElementById(print || ninjaName ? "pf_description" : "pf_name").focus();
+}
+
+function readFileBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).replace(/^data:[^,]*,/, ""));
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function closePrintModal() {
+  document.getElementById("printModalOverlay").classList.remove("open");
+}
+document.getElementById("printModalCancel").addEventListener("click", closePrintModal);
+
+document.getElementById("printModalSubmit").addEventListener("click", async () => {
+  const btn = document.getElementById("printModalSubmit");
+  const body = {
+    name: document.getElementById("pf_name").value.trim(),
+    description: document.getElementById("pf_description").value.trim(),
+    model_link: document.getElementById("pf_link").value.trim(),
+    promised_date: document.getElementById("pf_promised").value,
+  };
+  if (editingPrint && editingPrint.printed_date) body.printed_date = document.getElementById("pf_printed").value;
+  const remove = document.getElementById("pf_remove_file");
+  if (remove && remove.checked) body.remove_file = true;
+  const file = document.getElementById("pf_file").files[0];
+  if (file && file.size > PRINT_FILE_LIMIT) {
+    showBanner("printFormError", `That file is ${printSizeText(file.size)}. Files up to 2 MB can be kept here; ` +
+      "for a bigger one, put it in Google Drive (or Tinkercad / Thingiverse) and paste the link instead.", "error");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (file) body.file = { name: file.name, type: file.type, data: await readFileBase64(file) };
+    if (editingPrint) await api(`/api/prints/${editingPrint.id}`, { method: "PUT", body: JSON.stringify(body) });
+    else await api("/api/prints", { method: "POST", body: JSON.stringify(body) });
+    closePrintModal();
+    if (rewardsPart === "prints") loadPrints();
+    if (profileNinja && document.getElementById("ninjaProfileOverlay").classList.contains("open")) openNinjaProfile({ uid: profileNinja.uid });
+  } catch (error) {
+    showBanner("printFormError", error.message, "error");
+    btn.disabled = false;
+  }
+});
+
+// ---- Mark as printed window. Recording it as a given reward is a separate, visible choice.
+
+function openPrintedModal(print) {
+  printedFor = print;
+  hideBanner("printedError");
+  document.getElementById("printedIntro").textContent = `${printTitle(print)} for ${print.name} (promised ${print.promised_date}).` +
+    (print.position > 1 ? ` It is #${print.position} in the queue; marking it printed is fine, the others keep their order.` : "");
+  document.getElementById("pd_date").value = todayInput();
+  const box = document.getElementById("pd_given");
+  box.checked = false;
+  document.getElementById("pd_given_field").style.display = print.prints_owed > 0 ? "" : "none";
+  document.getElementById("pd_given_label").textContent = `Also record it as handed out: adds 1 × 3D Print to Rewards given ` +
+    `(${print.name} has ${print.prints_owed} owed, this makes it ${print.prints_owed - 1})`;
+  document.getElementById("printedSubmit").disabled = false;
+  document.getElementById("printedModalOverlay").classList.add("open");
+}
+
+document.getElementById("printedCancel").addEventListener("click", () => {
+  document.getElementById("printedModalOverlay").classList.remove("open");
+});
+
+document.getElementById("printedSubmit").addEventListener("click", async () => {
+  const btn = document.getElementById("printedSubmit");
+  btn.disabled = true;
+  try {
+    const result = await api(`/api/prints/${printedFor.id}/printed`, { method: "POST", body: JSON.stringify({
+      printed_date: document.getElementById("pd_date").value,
+      record_given: document.getElementById("pd_given").checked,
+    }) });
+    document.getElementById("printedModalOverlay").classList.remove("open");
+    showBanner("printsBanner", `Marked printed: ${printTitle(printedFor)} for ${printedFor.name}.` +
+      (result.recorded_given ? " 1 × 3D Print recorded under Rewards given." : ""), "success");
+    if (rewardsPart === "prints") loadPrints();
+    if (profileNinja && document.getElementById("ninjaProfileOverlay").classList.contains("open")) openNinjaProfile({ uid: profileNinja.uid });
+  } catch (error) {
+    showBanner("printedError", error.message, "error");
+    btn.disabled = false;
+  }
+});
 
 // ================================================================
 // SETTINGS

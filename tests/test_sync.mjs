@@ -112,6 +112,16 @@ check("JR mark and note reach the other person", (as(B),
   conn.get("SELECT is_jr FROM active_ninjas WHERE name='Zed'").is_jr === 1 &&
   conn.all("SELECT * FROM jr_notes WHERE name='Zed' AND note='Working on the animal story'").length === 1));
 
+// ---- 3D print queue (with its file) is shared, and marking printed travels
+const modelFile = Buffer.from("solid cube\nendsolid cube\n").toString("base64");
+await api(A, "POST", "/api/prints", { name: "Zed", description: "Cube", promised_date: "2026-10-01", file: { name: "cube.stl", data: modelFile } });
+await sync(A); await sync(B);
+const zedPrint = (as(B), conn.get("SELECT * FROM print_queue WHERE name='Zed'"));
+check("a queued print and its file reach the other person", zedPrint && zedPrint.file_data === modelFile && zedPrint.file_name === "cube.stl", zedPrint);
+await api(B, "POST", `/api/prints/${zedPrint.id}/printed`, { printed_date: "2026-10-09" });
+await sync(B); await sync(A);
+check("marked printed reaches the first person", (as(A), conn.get("SELECT printed_date FROM print_queue WHERE name='Zed'").printed_date === "2026-10-09"));
+
 // ---- Ninja records: two people add the same child at the same moment -> one shared record
 await api(A, "POST", "/api/active-ninjas", { name: "Twin Test", day: "Friday", time_slot: "4 PM" });
 await api(B, "POST", "/api/active-ninjas", { name: "twin test", day: "Saturday", time_slot: "4 PM" });

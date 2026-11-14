@@ -41,6 +41,7 @@
       <button class="subtab-btn active" data-panel="rewards">Rewards owed</button>
       <button class="subtab-btn" data-panel="belts">Belt-ups</button>
       <button class="subtab-btn" data-panel="history">Rewards given</button>
+      <button class="subtab-btn" data-panel="prints">3D print queue</button>
     </div>
 
     <!-- ============ LEADS ============ -->
@@ -254,6 +255,33 @@
       </div>
     </section>
 
+    <!-- ============ 3D PRINT QUEUE ============ -->
+    <section id="tab-prints" class="tab-panel">
+      <p class="page-intro">Prints promised to Ninjas, <b>first come, first printed</b> (oldest promised date at the top).
+        Keep a link to the model and/or the file itself with each one. Press <b>&#10004; Printed</b> when it's done
+        and the next one is up.</p>
+      <div class="panel-header">
+        <input type="text" id="printsSearch" class="panel-search" placeholder="Search name, print, file&hellip;">
+        <div class="spacer"></div>
+        <button class="btn-primary" id="addPrintBtn">+ Add a print</button>
+      </div>
+      <div class="view-toggle">
+        <button class="toggle-btn active" id="printsQueuedBtn">Queue</button>
+        <button class="toggle-btn" id="printsPrintedBtn">Printed</button>
+        <span class="muted" id="printsCountLabel"></span>
+      </div>
+      <div class="banner" id="printsBanner"></div>
+      <div class="table-wrap">
+        <table id="printsTable">
+          <thead>
+            <tr><th>#</th><th>Ninja</th><th>Print</th><th>Model</th><th id="printsDateHead">Promised</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty-state" id="printsEmpty">No prints waiting.</div>
+      </div>
+    </section>
+
     <!-- ============ SETTINGS ============ -->
     <section id="tab-settings" class="tab-panel">
       <div class="settings-card">
@@ -379,6 +407,69 @@
       <div class="modal-actions">
         <button class="btn-secondary" id="giveRewardsCancel">Cancel</button>
         <button class="btn-primary" id="giveRewardsSubmit">Record Rewards</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Add / Edit a 3D print ============ -->
+  <div class="modal-overlay" id="printModalOverlay">
+    <div class="modal">
+      <h2 id="printModalTitle">Add a 3D print</h2>
+      <div class="banner error" id="printFormError"></div>
+      <div class="form-grid">
+        <div class="field full">
+          <label for="pf_name">Ninja</label>
+          <div class="hint" id="pf_owed_hint"></div>
+          <input type="text" id="pf_name" list="printNinjaOptions" autocomplete="off" placeholder="Start typing a name&hellip;">
+          <datalist id="printNinjaOptions"></datalist>
+        </div>
+        <div class="field full">
+          <label for="pf_description">What to print</label>
+          <input type="text" id="pf_description" placeholder="e.g. Red dragon keychain, 5 cm">
+        </div>
+        <div class="field full">
+          <label for="pf_link">Link to the model</label>
+          <div class="hint">Tinkercad, Thingiverse, Google Drive&hellip; (optional if you attach the file)</div>
+          <input type="text" id="pf_link" placeholder="https://&hellip;">
+        </div>
+        <div class="field full">
+          <label for="pf_file">Model file</label>
+          <div class="hint" id="pf_file_hint">.stl, .3mf, .obj&hellip; up to 2 MB. For bigger files use a link.</div>
+          <div id="pf_current_file" class="print-current-file"></div>
+          <input type="file" id="pf_file">
+        </div>
+        <div class="field">
+          <label for="pf_promised">Promised on</label>
+          <input type="date" id="pf_promised">
+        </div>
+        <div class="field" id="pf_printed_field" style="display:none;">
+          <label for="pf_printed">Printed on</label>
+          <input type="date" id="pf_printed">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="printModalCancel">Cancel</button>
+        <button class="btn-primary" id="printModalSubmit">Add to queue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: Mark a 3D print as printed ============ -->
+  <div class="modal-overlay" id="printedModalOverlay">
+    <div class="modal">
+      <h2>Mark as printed</h2>
+      <p class="muted" id="printedIntro"></p>
+      <div class="banner error" id="printedError"></div>
+      <div class="field">
+        <label for="pd_date">Printed on</label>
+        <input type="date" id="pd_date">
+      </div>
+      <div class="checkbox-field" id="pd_given_field">
+        <label><input type="checkbox" id="pd_given"> <span id="pd_given_label"></span></label>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="printedCancel">Cancel</button>
+        <button class="btn-primary" id="printedSubmit">Mark printed</button>
       </div>
     </div>
   </div>

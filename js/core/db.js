@@ -105,6 +105,24 @@ CREATE TABLE IF NOT EXISTS jr_notes (
     ninja_uid TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- The 3D print queue: one row per print promised to a Ninja (see js/api/prints.js). The model is
+-- a link and/or a small file kept right here (file_data = base64), shared like every other sheet.
+-- printed_date is blank while it waits; the queue is oldest promised_date first.
+CREATE TABLE IF NOT EXISTS print_queue (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    ninja_uid TEXT,
+    description TEXT,
+    model_link TEXT,
+    file_name TEXT,
+    file_type TEXT,
+    file_size INTEGER,
+    file_data TEXT,
+    promised_date TEXT NOT NULL,
+    printed_date TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 // Starter dropdown values (editable from the Settings tab).
@@ -285,7 +303,7 @@ export function describeImportable(bytes) {
   try {
     const res = probe.exec("SELECT name FROM sqlite_master WHERE type='table'");
     const tables = res.length ? res[0].values.map((v) => v[0]) : [];
-    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "receipts", "settings", "ninjas", "families"].filter((t) => tables.includes(t));
+    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "print_queue", "receipts", "settings", "ninjas", "families"].filter((t) => tables.includes(t));
     if (!known.length) return { ok: false, reason: "That database doesn't look like a Ninja Program database." };
     return { ok: true, tables: known };
   } catch (error) {
@@ -307,6 +325,7 @@ export const SYNC_TABLES = {
   receipts: { pk: "id" },
   active_ninjas: { pk: "id" },
   jr_notes: { pk: "id" },
+  print_queue: { pk: "id" },
   settings: { pk: "key" },
 };
 

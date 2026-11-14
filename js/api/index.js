@@ -5,5 +5,6 @@ import "./belts.js";
 import "./active.js";
 import "./jr.js";
 import "./rewards.js";
+import "./prints.js";
 
 export { handleRequest, onDataChanged } from "./router.js";

@@ -66,6 +66,16 @@ alter table public.receipts add column if not exists ninja_uid text;
 alter table public.active_ninjas add column if not exists ninja_uid text;
 alter table public.jr_notes add column if not exists ninja_uid text;
 
+-- Added later (3D print queue). The model file, when there is one, is kept in file_data (base64).
+create table if not exists public.print_queue (
+  id bigint generated always as identity primary key,
+  name text not null, ninja_uid text, description text, model_link text,
+  file_name text, file_type text, file_size integer, file_data text,
+  promised_date text not null, printed_date text,
+  created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at timestamptz not null default now(), deleted boolean not null default false
+);
+
 create table if not exists public.settings (
   key text primary key, value text not null,
   updated_at timestamptz not null default now()
@@ -76,6 +86,7 @@ create index if not exists belt_entries_updated on public.belt_entries (updated_
 create index if not exists receipts_updated on public.receipts (updated_at);
 create index if not exists active_ninjas_updated on public.active_ninjas (updated_at);
 create index if not exists jr_notes_updated on public.jr_notes (updated_at);
+create index if not exists print_queue_updated on public.print_queue (updated_at);
 create index if not exists settings_updated on public.settings (updated_at);
 create index if not exists families_updated on public.families (updated_at);
 create index if not exists ninjas_updated on public.ninjas (updated_at);
@@ -86,7 +97,7 @@ begin new.updated_at = now(); return new; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','settings','families','ninjas'] loop
+  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','print_queue','settings','families','ninjas'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before insert or update on public.%I for each row execute function public.touch_updated_at()', t);
     -- Only signed-in team members can read or change anything. Visitors who are not signed in get nothing.
