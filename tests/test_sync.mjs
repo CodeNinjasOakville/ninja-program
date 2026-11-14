@@ -112,6 +112,11 @@ check("JR mark and note reach the other person", (as(B),
   conn.get("SELECT is_jr FROM active_ninjas WHERE name='Zed'").is_jr === 1 &&
   conn.all("SELECT * FROM jr_notes WHERE name='Zed' AND note='Working on the animal story'").length === 1));
 
+// ---- a JR skill set by hand is shared
+await api(A, "PUT", "/api/jr-skills", { name: "Zed", skill: "Reading", status: "done", author: "Sensei A" });
+await sync(A); await sync(B);
+check("a JR skill set by hand reaches the other person", (as(B), conn.all("SELECT * FROM jr_skills WHERE name='Zed' AND skill='Reading' AND status='done'").length === 1));
+
 // ---- 3D print queue (with its file) is shared, and marking printed travels
 const modelFile = Buffer.from("solid cube\nendsolid cube\n").toString("base64");
 await api(A, "POST", "/api/prints", { name: "Zed", description: "Cube", promised_date: "2026-10-01", file: { name: "cube.stl", data: modelFile } });

@@ -3,16 +3,16 @@
 // ids are handed out by the server, updated_at is set by the server, filters/paging work.
 export function createMockSupabase({ users = { "a@example.com": "passw0rd-long-1", "b@example.com": "passw0rd-long-2" }, tokenSeconds = 3600 } = {}) {
   const URL_ = "https://mock.supabase.co";
-  const tables = { families: [], ninjas: [], leads: [], belt_entries: [], receipts: [], active_ninjas: [], jr_notes: [], print_queue: [], settings: [] };
+  const tables = { families: [], ninjas: [], leads: [], belt_entries: [], receipts: [], active_ninjas: [], jr_notes: [], jr_skills: [], print_queue: [], settings: [] };
   // Tables keyed by a uid the browser makes (insert-or-update), like the real ones in schema.sql.
   const KEYED = new Set(["families", "ninjas"]);
-  const identity = { leads: 0, belt_entries: 0, receipts: 0, active_ninjas: 0, jr_notes: 0, print_queue: 0 };
+  const identity = { leads: 0, belt_entries: 0, receipts: 0, active_ninjas: 0, jr_notes: 0, jr_skills: 0, print_queue: 0 };
   const defaults = {
     families: { name: null, email: null, phone: null }, ninjas: { belt: "", family_uid: null, notes: null },
     leads: { ninja_uid: null, entry_number: null, parent_name: null, phone_number: null, email: null, age: null, gbs_type: null, staff_name: null, coding_experience: null, comments: null, gbs_date: null, gbs_time: null, post_gbs_follow_up: null, gbs_completed: null, lead_date: null },
-    belt_entries: { old_belt: null, new_belt: null, ninja_uid: null }, receipts: { details: null, entry_type: null, ninja_uid: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null, belt: "", is_jr: 0, ninja_uid: null }, jr_notes: { author: null, ninja_uid: null }, print_queue: { ninja_uid: null, description: null, model_link: null, file_name: null, file_type: null, file_size: null, file_data: null, printed_date: null }, settings: {},
+    belt_entries: { old_belt: null, new_belt: null, ninja_uid: null }, receipts: { details: null, entry_type: null, ninja_uid: null }, active_ninjas: { day: null, time_slot: null, is_ai: 0, notes: null, belt: "", is_jr: 0, ninja_uid: null }, jr_notes: { author: null, ninja_uid: null }, jr_skills: { author: null, ninja_uid: null }, print_queue: { ninja_uid: null, description: null, model_link: null, file_name: null, file_type: null, file_size: null, file_data: null, printed_date: null }, settings: {},
   };
-  const notNull = { families: ["uid"], ninjas: ["uid", "name"], leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], jr_notes: ["name", "note"], print_queue: ["name", "promised_date"], settings: ["key", "value"] };
+  const notNull = { families: ["uid"], ninjas: ["uid", "name"], leads: ["ninja_name"], belt_entries: ["name"], receipts: ["date", "name", "reward_type", "amount"], active_ninjas: ["name"], jr_notes: ["name", "note"], jr_skills: ["name", "skill", "status"], print_queue: ["name", "promised_date"], settings: ["key", "value"] };
   const tokens = new Map();     // access token -> { email, expires }
   const refresh = new Map();    // refresh token -> email
   const stats = { requests: 0, restCalls: 0, failNext: 0, log: [] };

@@ -106,6 +106,19 @@ CREATE TABLE IF NOT EXISTS jr_notes (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- JR skills checklist: a status a sensei set by hand for one skill of one JR Ninja
+-- ("working", "needs_work" or "done"). Skills nobody set are suggested from the JR notes instead
+-- (js/lib/jr_skills.js), so they need no row. One row per Ninja + skill.
+CREATE TABLE IF NOT EXISTS jr_skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    ninja_uid TEXT,
+    skill TEXT NOT NULL,
+    status TEXT NOT NULL,
+    author TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- The 3D print queue: one row per print promised to a Ninja (see js/api/prints.js). The model is
 -- a link and/or a small file kept right here (file_data = base64), shared like every other sheet.
 -- printed_date is blank while it waits; the queue is oldest promised_date first.
@@ -127,6 +140,8 @@ CREATE TABLE IF NOT EXISTS print_queue (
 
 // Starter dropdown values (editable from the Settings tab).
 // belt_options is ORDER-SENSITIVE: lowest to highest belt.
+import { DEFAULT_JR_SKILLS } from "../lib/jr_skills.js";
+
 export const DEFAULT_SETTINGS = {
   gbs_types: ["Intro GBS", "Follow-up GBS", "Trial Class"],
   coding_experience_options: ["None", "Some", "Experienced"],
@@ -136,6 +151,8 @@ export const DEFAULT_SETTINGS = {
     "White", "Yellow", "Orange", "Green", "Blue", "Purple",
     "Brown", "Red", "Black", "Bronze", "Silver", "Platinum", "Gold",
   ],
+  // "Area: Skill | words to look for in JR notes" (see js/lib/jr_skills.js)
+  jr_skills: DEFAULT_JR_SKILLS,
   schedule_days: [
     "Monday", "Tuesday", "Wednesday", "Thursday",
     "Friday", "Saturday", "Sunday",
@@ -303,7 +320,7 @@ export function describeImportable(bytes) {
   try {
     const res = probe.exec("SELECT name FROM sqlite_master WHERE type='table'");
     const tables = res.length ? res[0].values.map((v) => v[0]) : [];
-    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "print_queue", "receipts", "settings", "ninjas", "families"].filter((t) => tables.includes(t));
+    const known = ["leads", "belt_entries", "active_ninjas", "jr_notes", "jr_skills", "print_queue", "receipts", "settings", "ninjas", "families"].filter((t) => tables.includes(t));
     if (!known.length) return { ok: false, reason: "That database doesn't look like a Ninja Program database." };
     return { ok: true, tables: known };
   } catch (error) {
@@ -325,6 +342,7 @@ export const SYNC_TABLES = {
   receipts: { pk: "id" },
   active_ninjas: { pk: "id" },
   jr_notes: { pk: "id" },
+  jr_skills: { pk: "id" },
   print_queue: { pk: "id" },
   settings: { pk: "key" },
 };

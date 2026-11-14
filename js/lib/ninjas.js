@@ -132,7 +132,7 @@ export function renameNinja(conn, uid, name) {
 }
 
 // Sheets that keep a copy of the Ninja's name in a "name" column.
-const NAMED_SHEETS = ["active_ninjas", "belt_entries", "receipts", "jr_notes", "print_queue"];
+const NAMED_SHEETS = ["active_ninjas", "belt_entries", "receipts", "jr_notes", "jr_skills", "print_queue"];
 
 // ------------------------------------------------------------------ keeping links right
 
@@ -182,7 +182,7 @@ export function linkEverything(conn) {
   }
 
   // 2. Belts, rewards, JR notes and the 3D print queue
-  for (const table of ["belt_entries", "receipts", "jr_notes", "print_queue"]) {
+  for (const table of ["belt_entries", "receipts", "jr_notes", "jr_skills", "print_queue"]) {
     for (const row of conn.all(`SELECT id, name, ninja_uid FROM ${table}`)) {
       let n = byUid.get(row.ninja_uid);
       if (!n && !row.ninja_uid) {

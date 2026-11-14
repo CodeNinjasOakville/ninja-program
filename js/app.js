@@ -37,6 +37,7 @@ const SETTINGS_LABELS = {
   follow_up_options: "Post GBS Follow-up Options",
   gbs_completed_options: "GBS Completed Options",
   belt_options: "Belt Colors (lowest to highest)",
+  jr_skills: "JR skills checklist - one per line: Area: Skill | words to look for in notes",
 };
 
 // ================================================================
@@ -483,6 +484,7 @@ async function openNinjaProfile({ uid, name }) {
   if (ninja.notes.length || ninja.classes.some((c) => c.is_jr)) {
     const notes = ninja.notes.slice(0, 3).map((n) => el("div", { class: "profile-line",
       text: `${shortDate(n.created_at)}  ${n.note}` + (n.author ? ` — ${n.author}` : "") }));
+    body.appendChild(profileCard("JR skills", [jrSkillSummary(ninja.jr.summary, "Nothing yet. Notes and the checklist (JR notes button) fill this in.")]));
     body.appendChild(profileCard("JR notes (what they're working on)", notes));
   }
 
@@ -1400,7 +1402,73 @@ function jrNoteItem(note, isLatest, refresh) {
   return item;
 }
 
-// One JR Ninja: belt, classes, a box to add a note, then the notes (latest few, or all).
+// ---- JR skills checklist (rules in js/lib/jr_skills.js; skills listed in Settings)
+
+const JR_STATUS_LABELS = { working: "Working on", needs_work: "Needs work", done: "Got it" };
+const jrSkillsOpen = new Set(); // cards whose checklist is open
+
+// "Needs work: ... / Working on: ... / Got it: ..." as coloured chips.
+function jrSkillSummary(summary, emptyText) {
+  const box = el("div", { class: "jr-skill-summary" });
+  ["needs_work", "working", "done"].forEach((status) => {
+    if (!summary[status].length) return;
+    const line = el("div", { class: "jr-skill-line" }, [el("span", { class: "jr-skill-head", text: JR_STATUS_LABELS[status] + ":" })]);
+    summary[status].forEach((s) => line.appendChild(el("span", { class: "jr-chip " + status, text: s })));
+    box.appendChild(line);
+  });
+  if (!box.childNodes.length) box.appendChild(el("div", { class: "muted", text: emptyText || "Nothing on the skills checklist yet." }));
+  return box;
+}
+
+// Every skill with a drop-down: the notes' suggestion, or what a sensei set (which always wins).
+function jrChecklist(person, refresh) {
+  const key = jrKey(person.name);
+  const fromNotes = person.skills.filter((s) => s.source === "notes").length;
+  const bySensei = person.skills.filter((s) => s.source === "sensei").length;
+  const box = el("details", { class: "jr-checklist" });
+  if (jrSkillsOpen.has(key)) box.setAttribute("open", "");
+  box.addEventListener("toggle", () => { if (box.open) jrSkillsOpen.add(key); else jrSkillsOpen.delete(key); });
+  box.appendChild(el("summary", { text: `Skills checklist (${fromNotes} from notes, ${bySensei} set by a sensei)` }));
+  const error = el("div", { class: "banner" });
+  let area = null;
+  person.skills.forEach((item) => {
+    if (item.area !== area) {
+      area = item.area;
+      box.appendChild(el("div", { class: "jr-skill-area", text: area }));
+    }
+    const select = el("select", { title: "Pick a status, or leave it on the notes' suggestion" });
+    const auto = item.from_notes;
+    select.appendChild(el("option", { value: "", text: auto ? `From notes: ${JR_STATUS_LABELS[auto.status]}` : "—" }));
+    Object.entries(JR_STATUS_LABELS).forEach(([value, text]) => select.appendChild(el("option", { value, text })));
+    select.value = item.source === "sensei" ? item.status : "";
+    select.className = "jr-skill-select " + (item.status || "none");
+    select.addEventListener("change", async () => {
+      select.disabled = true;
+      try {
+        await api("/api/jr-skills", { method: "PUT", body: JSON.stringify({ name: person.name, uid: person.uid, skill: item.skill, status: select.value, author: jrAuthor() }) });
+        await refresh();
+      } catch (e) {
+        inlineError(error, e.message);
+        select.disabled = false;
+      }
+    });
+    const why = item.source === "sensei"
+      ? `Set by ${item.set_by || "a sensei"}${item.set_on ? " on " + noteDate(item.set_on) : ""}` +
+        (auto ? ` · notes say ${JR_STATUS_LABELS[auto.status]}` : "")
+      : auto ? `${noteDate(auto.date)}: "${auto.phrase}"` : "";
+    box.appendChild(el("div", { class: "jr-skill-row" }, [
+      el("div", {}, [el("div", { class: "jr-skill-name", text: item.skill }), why ? el("div", { class: "jr-skill-why", text: why }) : el("span")]),
+      select,
+    ]));
+  });
+  box.appendChild(error);
+  box.appendChild(el("div", { class: "muted jr-skill-help", text:
+    "Suggestions come from the notes (the newest note that mentions a skill). Pick a status to set it yourself; " +
+    "pick the first option to go back to the notes. Change the list of skills in Settings." }));
+  return box;
+}
+
+// One JR Ninja: belt, classes, skills, a box to add a note, then the notes (latest few, or all).
 function jrCard(person, refresh) {
   const key = jrKey(person.name);
   const card = el("div", { class: "jr-card", "data-person": key });
@@ -1412,6 +1480,10 @@ function jrCard(person, refresh) {
   const sessions = el("div", { class: "sessions-cell" });
   sortSessions(person.sessions).forEach((r) => sessions.appendChild(sessionPill(r)));
   card.appendChild(sessions);
+  if (person.skills) {
+    card.appendChild(jrSkillSummary(person.summary, "Nothing on the skills checklist yet: write a note, or set skills below."));
+    card.appendChild(jrChecklist(person, refresh));
+  }
 
   const draft = el("textarea", {
     class: "jr-draft jr-new", rows: "2", "data-draft": "1",
