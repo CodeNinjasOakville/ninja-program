@@ -4,6 +4,7 @@ import { conn } from "../core/db.js";
 import { route } from "./router.js";
 import { ApiError, cleanIds, placeholders, pyInt, todayCertificateDate, todayISO } from "../lib/util.js";
 import * as rewards from "../lib/rewards.js";
+import { getRewardsByDay } from "../lib/rewards_by_day.js";
 import { currentBeltLookup } from "../lib/belt_match.js";
 import { generateCertificatesPdf } from "../pdf/certificates.js";
 import { generateTotemTagsPdf } from "../pdf/totem_tags.js";
@@ -12,6 +13,9 @@ import { generateBeltSheetPdf } from "../pdf/belt_sheet.js";
 const titleCase = (field) => field.split("_").map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
 
 route("GET", "/api/rewards/summary", () => rewards.getSummary(conn));
+
+// ?day=Monday -> {days, day, ninjas, rows, totals, attending, owed_count}; no day -> just {days}.
+route("GET", "/api/rewards/by-day", ({ query }) => getRewardsByDay(conn, query.day));
 
 // Records what was handed out, refusing to give a Ninja more than they have remaining.
 route("POST", "/api/rewards/give", ({ body }) => {

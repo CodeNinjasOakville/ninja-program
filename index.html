@@ -193,6 +193,9 @@
         name) to hand them out - it is recorded under "Rewards given".</p>
       <div class="panel-header">
         <input type="text" id="rewardsSearch" class="panel-search" placeholder="Search&hellip;">
+        <select id="rewardsDay" title="Show only the Ninjas who come in on this day">
+          <option value="">Every day</option>
+        </select>
         <div class="spacer"></div>
         <button class="btn-primary" id="giveRewardsBtn">Give Rewards</button>
         <details class="menu">
@@ -221,6 +224,7 @@
         </table>
         <div class="empty-state" id="rewardsEmpty">Everyone is all caught up - nothing outstanding.</div>
       </div>
+      <p class="muted" id="rewardsDayCaughtUp" style="display:none;"></p>
     </section>
 
     <!-- ============ REWARD HISTORY ============ -->

@@ -2496,12 +2496,35 @@ const OVERALL_LABELS = {
   belts: "New Belts",
 };
 
+// The day picker: "Every day", then each day with how many Ninjas come in. Keeps the current pick.
+function fillRewardsDays(days) {
+  const select = document.getElementById("rewardsDay");
+  const picked = select.value;
+  select.innerHTML = "";
+  select.appendChild(el("option", { value: "", text: "Every day" }));
+  days.forEach(({ day, ninjas }) => select.appendChild(el("option", { value: day, text: `${day} (${ninjas})` })));
+  select.value = days.some((d) => d.day === picked) ? picked : "";
+}
+
 async function loadRewards() {
   hideBanner("rewardsBanner");
-  const summary = await api("/api/rewards/summary");
+  const picked = document.getElementById("rewardsDay").value;
+  const [summary, byDay] = await Promise.all([
+    api("/api/rewards/summary"),
+    api(`/api/rewards/by-day${picked ? `?day=${encodeURIComponent(picked)}` : ""}`),
+  ]);
+  fillRewardsDays(byDay.days);
+  const day = document.getElementById("rewardsDay").value ? byDay : null;
 
   const totalsContainer = document.getElementById("rewardsTotals");
   totalsContainer.innerHTML = "";
+  const caughtUp = document.getElementById("rewardsDayCaughtUp");
+  caughtUp.style.display = "none";
+
+  if (day) {
+    renderDayRewards(day, totalsContainer, caughtUp);
+    return;
+  }
 
   const levelsCard = el("div", { class: "totals-card" });
   levelsCard.appendChild(el("div", { class: "totals-card-label", text: "Levels Progressed" }));
@@ -2520,21 +2543,54 @@ async function loadRewards() {
     totalsContainer.appendChild(card);
   });
 
+  renderRewardRows(summary.rows, "Everyone is all caught up - nothing outstanding.");
+}
+
+// One day picked: cards total what that day's Ninjas are owed; the table lists just them.
+function renderDayRewards(day, totalsContainer, caughtUp) {
+  const card = (label, value, sub) => el("div", { class: "totals-card" }, [
+    el("div", { class: "totals-card-label", text: label }),
+    el("div", { class: "totals-card-value", text: String(value) }),
+    el("div", { class: "totals-card-sub", text: sub }),
+  ]);
+  totalsContainer.appendChild(card(`${day.day} Ninjas owed`, day.owed_count, `of ${day.attending} who come in`));
+  Object.keys(OVERALL_LABELS).forEach((field) => {
+    const isCoin = field === "large_coins" || field === "small_coins";
+    totalsContainer.appendChild(card(OVERALL_LABELS[field], day.totals[field],
+      isCoin ? `to pay ${day.day} Ninja Bucks owed` : `owed on ${day.day}`));
+  });
+
+  const nothingOwed = day.ninjas.filter((n) => !n.owed).map((n) => n.name);
+  if (nothingOwed.length) {
+    caughtUp.textContent = `Also in on ${day.day}, nothing owed: ${nothingOwed.join(", ")}.`;
+    caughtUp.style.display = "block";
+  }
+  renderRewardRows(day.rows, day.attending
+    ? `Every ${day.day} Ninja is all caught up - nothing outstanding.`
+    : `No Ninjas have a class on ${day.day}.`);
+}
+
+function renderRewardRows(allRows, nothingText) {
   const tbody = document.querySelector("#rewardsTable tbody");
   tbody.innerHTML = "";
 
   const search = document.getElementById("rewardsSearch").value;
-  const rows = summary.rows.filter((row) =>
-    matchesSearch([row.name, row.progression, ...REWARD_COLUMNS.map(([key]) => row[key])], search));
+  const rows = allRows.filter((row) =>
+    matchesSearch([row.name, row.progression, ...(row.time_slots || []), ...REWARD_COLUMNS.map(([key]) => row[key])], search));
   const empty = document.getElementById("rewardsEmpty");
   empty.style.display = rows.length ? "none" : "block";
-  empty.textContent = summary.rows.length ? "No rewards match this search." : "Everyone is all caught up - nothing outstanding.";
+  empty.textContent = allRows.length ? "No rewards match this search." : nothingText;
 
   rewardsRowsCache = rows;
 
   rows.forEach((row) => {
     const tr = el("tr");
-    tr.appendChild(el("td", {}, [ninjaLink(row.name)]));
+    const nameCell = el("td", {}, [ninjaLink(row.name)]);
+    // With a day picked, show when they come in that day.
+    if (row.time_slots && row.time_slots.length) {
+      nameCell.appendChild(el("div", { class: "muted", text: row.time_slots.join(", ") }));
+    }
+    tr.appendChild(nameCell);
     tr.appendChild(el("td", { text: row.progression }));
     REWARD_COLUMNS.forEach(([key]) => {
       tr.appendChild(el("td", { text: String(row[key]) }));
@@ -2557,6 +2613,7 @@ async function loadRewards() {
 
 document.getElementById("refreshRewardsBtn").addEventListener("click", loadRewards);
 document.getElementById("rewardsSearch").addEventListener("input", () => loadRewards());
+document.getElementById("rewardsDay").addEventListener("change", () => loadRewards());
 
 document.getElementById("printTotemTagsRewardsBtn").addEventListener("click", () => {
   printTotemTagsForNames(
