@@ -118,3 +118,36 @@ begin
   end loop;
 end $$;
 grant usage, select on all sequences in schema public to authenticated;
+
+-- Added later (leads from CRM inquiry emails, see supabase/functions/lead-inquiry and INQUIRY_EMAILS.md).
+-- inquiry_status is 'new' until someone checks the lead and marks it complete ('' after that).
+alter table public.leads add column if not exists inquiry_status text default '';
+alter table public.leads add column if not exists inquiry_email text;
+alter table public.leads add column if not exists inquiry_message_id text;
+
+-- Adds one lead from an inquiry email and returns its entry number. Only the email function
+-- (which runs on Supabase with the service_role key) may call it; signed-in members and visitors cannot.
+-- The same email delivered twice (same message id) is only added once.
+create or replace function public.add_lead_inquiry(p jsonb) returns integer
+language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  if coalesce(p->>'inquiry_message_id', '') <> '' then
+    select entry_number into n from public.leads
+      where inquiry_message_id = p->>'inquiry_message_id' and not deleted limit 1;
+    if found then return n; end if;
+  end if;
+  perform pg_advisory_xact_lock(732001);   -- two emails at once still get different entry numbers
+  select coalesce(max(entry_number), 0) + 1 into n from public.leads;
+  insert into public.leads (entry_number, ninja_name, parent_name, phone_number, email, age, gbs_type,
+      coding_experience, comments, gbs_date, gbs_time, lead_date,
+      inquiry_status, inquiry_email, inquiry_message_id)
+    values (n, coalesce(nullif(trim(p->>'ninja_name'), ''), '(child''s name not found)'),
+      p->>'parent_name', p->>'phone_number', p->>'email', p->>'age', p->>'gbs_type',
+      p->>'coding_experience', p->>'comments', p->>'gbs_date', p->>'gbs_time',
+      to_char(now() at time zone 'America/Toronto', 'YYYY-MM-DD'),
+      'new', p->>'inquiry_email', nullif(p->>'inquiry_message_id', ''));
+  return n;
+end $$;
+revoke all on function public.add_lead_inquiry(jsonb) from public, anon, authenticated;
+grant execute on function public.add_lead_inquiry(jsonb) to service_role;

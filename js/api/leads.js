@@ -169,6 +169,13 @@ route("PUT", "/api/leads/:id", ({ params, body }) => {
   return { ok: true };
 });
 
+// A lead from an inquiry email has been checked: it becomes a normal lead (the original email is kept).
+route("POST", "/api/leads/:id/inquiry-done", ({ params }) => {
+  if (!conn.get("SELECT id FROM leads WHERE id = ?", [params.id])) throw new ApiError("That entry no longer exists.", 404);
+  conn.run("UPDATE leads SET inquiry_status = '' WHERE id = ?", [params.id]);
+  return { ok: true };
+});
+
 route("DELETE", "/api/leads/:id", ({ params }) => {
   conn.run("DELETE FROM leads WHERE id = ?", [params.id]);
   return { ok: true };

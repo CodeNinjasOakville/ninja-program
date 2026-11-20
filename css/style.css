@@ -422,6 +422,21 @@ td.zero { color: #b8bdc8; }
 .gbs-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; border-top: 1px solid #f0f1f5; padding-top: 8px; }
 .gbs-chip { background: #eef0f5; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; }
 .gbs-entry { margin-left: auto; font-size: 11px; color: var(--muted); }
+.gbs-name.missing { color: #8a5a00; font-style: italic; }
+
+/* New inquiries from CRM emails: amber, at the very top of Leads */
+.gbs-inquiries { background: #fffaf0; border: 1px solid #f3dfb0; border-radius: 8px; padding: 12px 14px; }
+.gbs-card.inquiry { border-left-color: #e0a100; }
+.gbs-inquiry-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.gbs-inquiry-tag { background: #e0a100; color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 11.5px; font-weight: 700; }
+.gbs-asked { font-weight: 600; color: var(--accent-dark); }
+.gbs-warnings-head { font-size: 11.5px; color: #8a5a00; align-self: center; }
+.gbs-original summary { cursor: pointer; color: var(--accent); font-size: 12.5px; font-weight: 600; }
+.gbs-original-text {
+  margin-top: 6px; max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  background: #f7f8fb; border-radius: 6px; padding: 8px 10px; font-size: 12px;
+}
+.gbs-inquiry-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 
 /* Lead sharing a phone number or email with another lead. */
 td.dup-cell { background: #fff3d6; }

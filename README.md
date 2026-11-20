@@ -16,6 +16,7 @@ certificates and totem tags, and your whole team can use it from anywhere.
 | [SETUP.md](SETUP.md) | Short technical version of the same steps |
 | [SECURITY.md](SECURITY.md) | What is and isn't protected, honestly |
 | [CHANGING.md](CHANGING.md) | How to add a field, a route, a team member, change the certificate… |
+| [INQUIRY_EMAILS.md](INQUIRY_EMAILS.md) | Turn CRM inquiry emails (Outlook) into new leads automatically |
 
 How it works inside: the original screens and routes (`js/app.js`, `js/api/*`) still run in the browser against a
 local SQLite copy; `js/sync/` sends each change to Supabase and pulls teammates' changes. Tests: `npm test`.

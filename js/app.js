@@ -1998,12 +1998,22 @@ function leadContact(icon, value, href, dup, dupWhat) {
   return line;
 }
 
-function upcomingLeadCard(row, flags) {
-  const card = el("div", { class: "gbs-card" });
+const NO_CHILD_NAME = "(child's name not found)"; // what supabase/schema.sql add_lead_inquiry() saves
 
-  // When
+// inquiry: a lead that arrived from a CRM email and nobody has checked yet.
+function upcomingLeadCard(row, flags, inquiry = false) {
+  const card = el("div", { class: "gbs-card" + (inquiry ? " inquiry" : "") });
+
+  // When (for an inquiry: that it is new, and when it came in)
   const head = el("div", { class: "gbs-card-head" });
-  head.appendChild(el("div", { class: "gbs-time" + (row.gbs_time ? "" : " missing"), text: row.gbs_time || "Time not set" }));
+  if (inquiry) {
+    head.appendChild(el("div", { class: "gbs-inquiry-label" }, [
+      el("span", { class: "gbs-inquiry-tag", text: "✉ New inquiry" }),
+      el("span", { class: "muted", text: row.lead_date ? `received ${row.lead_date}` : "" }),
+    ]));
+  } else {
+    head.appendChild(el("div", { class: "gbs-time" + (row.gbs_time ? "" : " missing"), text: row.gbs_time || "Time not set" }));
+  }
   const tools = el("div", { class: "gbs-card-tools" });
   const box = el("input", { type: "checkbox", title: "Select (for totem tags or delete)" });
   box.checked = leadsSelected.has(row.id);
@@ -2018,7 +2028,8 @@ function upcomingLeadCard(row, flags) {
   card.appendChild(head);
 
   // Who
-  const who = el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name", text: row.ninja_name || "(no name)" })]);
+  const childName = row.ninja_name && row.ninja_name !== NO_CHILD_NAME ? row.ninja_name : "";
+  const who = el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name" + (childName ? "" : " missing"), text: childName || "Child's name not found" })]);
   if (row.age) who.appendChild(el("span", { class: "gbs-age", text: `Age ${row.age}` }));
   if (row.gbs_type) who.appendChild(el("span", { class: "gbs-type", text: row.gbs_type }));
   if (row.enrolled) {
@@ -2027,6 +2038,9 @@ function upcomingLeadCard(row, flags) {
     who.appendChild(badge);
   }
   card.appendChild(who);
+  if (inquiry && (row.gbs_date || row.gbs_time)) {
+    card.appendChild(el("div", { class: "gbs-asked", text: `Asked for: ${[row.gbs_date, row.gbs_time].filter(Boolean).join(" at ")}` }));
+  }
 
   // Parent + how to reach them
   const contact = el("div", { class: "gbs-parent" });
@@ -2046,11 +2060,52 @@ function upcomingLeadCard(row, flags) {
   }
 
   // Things to sort out before they arrive
+  // (for an inquiry: what still has to be filled in)
   const warnings = [];
-  if (!row.gbs_time) warnings.push("No GBS time");
-  if (!row.phone_number && !row.email) warnings.push("No phone or email");
-  if (!row.staff_name) warnings.push("No staff assigned");
-  if (warnings.length) card.appendChild(el("div", { class: "gbs-warnings" }, warnings.map((w) => el("span", { text: "\u26a0 " + w }))));
+  if (inquiry) {
+    if (!childName) warnings.push("Child's name");
+    if (!row.age) warnings.push("Age");
+    if (!row.phone_number && !row.email) warnings.push("Phone or email");
+    if (!row.gbs_date) warnings.push("GBS date");
+    if (!row.gbs_time) warnings.push("GBS time");
+  } else {
+    if (!row.gbs_time) warnings.push("No GBS time");
+    if (!row.phone_number && !row.email) warnings.push("No phone or email");
+    if (!row.staff_name) warnings.push("No staff assigned");
+  }
+  if (warnings.length) {
+    card.appendChild(el("div", { class: "gbs-warnings" }, [
+      ...(inquiry ? [el("b", { class: "gbs-warnings-head", text: "Still needed:" })] : []),
+      ...warnings.map((w) => el("span", { text: (inquiry ? "" : "\u26a0 ") + w })),
+    ]));
+  }
+
+  if (inquiry) {
+    if (row.inquiry_email) {
+      card.appendChild(el("details", { class: "gbs-original" }, [
+        el("summary", { text: "Original email" }),
+        el("div", { class: "gbs-original-text", text: row.inquiry_email }),
+      ]));
+    }
+    const actions = el("div", { class: "gbs-inquiry-actions" });
+    const fill = el("button", { class: "btn-secondary btn-small", type: "button", text: "\u270e Fill in details" });
+    fill.addEventListener("click", () => openLeadModal(row));
+    const done = el("button", { class: "btn-primary btn-small", type: "button", title: "Checked and filled in: move it to the normal leads", text: "\u2713 Mark complete" });
+    done.addEventListener("click", async () => {
+      if (warnings.length && !(await confirmDialog("Mark Complete",
+        `Still missing for ${childName || "this lead"}: ${warnings.join(", ")}.\n\nMark it complete anyway?`))) return;
+      done.disabled = true;
+      try {
+        await api(`/api/leads/${row.id}/inquiry-done`, { method: "POST" });
+        loadLeads();
+      } catch (error) {
+        showBanner("leadsImportBanner", error.message, "error");
+        done.disabled = false;
+      }
+    });
+    actions.append(fill, done);
+    card.appendChild(actions);
+  }
 
   const foot = el("div", { class: "gbs-card-foot" });
   if (row.staff_name) foot.appendChild(el("span", { class: "gbs-chip", text: `Staff: ${row.staff_name}` }));
@@ -2087,6 +2142,22 @@ function renderUpcomingLeads(rows, flags) {
     }
     group.appendChild(upcomingLeadCard(row, flags));
   });
+}
+
+// Leads that came in from CRM inquiry emails and haven't been checked yet, newest first.
+function renderInquiryLeads(rows, flags) {
+  const box = document.getElementById("inquiryLeads");
+  box.innerHTML = "";
+  box.style.display = rows.length ? "" : "none";
+  if (!rows.length) return;
+  box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
+    el("h3", { text: `New inquiries to follow up (${rows.length})` }),
+    el("span", { class: "muted", text: "Added automatically from CRM emails. Check the details against the original email, " +
+      "fill in what's missing, then press ✓ Mark complete." }),
+  ]));
+  const grid = el("div", { class: "gbs-day" });
+  [...rows].sort((a, b) => b.entry_number - a.entry_number).forEach((row) => grid.appendChild(upcomingLeadCard(row, flags, true)));
+  box.appendChild(grid);
 }
 
 async function loadLeads() {
@@ -2136,12 +2207,16 @@ async function loadLeads() {
   const sortedByGbs = allRows.every((r) => r.gbs_group);
   if (!sortedByGbs) offerLatestVersion("the leads list couldn't be sorted by GBS date");
   // Upcoming GBS get cards above the table (not in the duplicates view, which needs the table).
+  // New inquiries from CRM emails get their own cards at the very top until someone marks them complete.
   const showCards = sortedByGbs && !leadsDuplicatesOnly;
-  const upcoming = showCards ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day) : [];
+  const inquiries = showCards ? rows.filter((r) => r.inquiry_status === "new") : [];
+  renderInquiryLeads(inquiries, { isDupPhone, isDupEmail });
+  const upcoming = showCards ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day && !inquiries.includes(r)) : [];
   renderUpcomingLeads(upcoming, { isDupPhone, isDupEmail });
-  if (upcoming.length) rows = rows.filter((r) => !upcoming.includes(r));
-  document.getElementById("leadsTableWrap").style.display = upcoming.length && !rows.length ? "none" : "";
-  if (upcoming.length) document.getElementById("leadsEmpty").style.display = "none";
+  const carded = inquiries.length + upcoming.length;
+  if (carded) rows = rows.filter((r) => !upcoming.includes(r) && !inquiries.includes(r));
+  document.getElementById("leadsTableWrap").style.display = carded && !rows.length ? "none" : "";
+  if (carded) document.getElementById("leadsEmpty").style.display = "none";
   const groupCounts = {};
   rows.forEach((r) => { groupCounts[r.gbs_group] = (groupCounts[r.gbs_group] || 0) + 1; });
   const columnCount = document.querySelectorAll("#leadsTable thead th").length;

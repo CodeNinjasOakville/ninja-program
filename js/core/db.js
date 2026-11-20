@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS leads (
     gbs_completed TEXT,
     lead_date TEXT,
     ninja_uid TEXT,
+    -- Leads added automatically from a CRM inquiry email (supabase/functions/lead-inquiry):
+    -- inquiry_status 'new' until someone checks it and marks it complete ('' after that).
+    inquiry_status TEXT DEFAULT '',
+    inquiry_email TEXT,
+    inquiry_message_id TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -185,6 +190,13 @@ export const MIGRATIONS = [
         conn.run(`ALTER TABLE ${table} ADD COLUMN ninja_uid TEXT`);
       }
     }
+  },
+  // 4: Leads from CRM inquiry emails.
+  (conn) => {
+    const cols = conn.all("PRAGMA table_info(leads)").map((c) => c.name);
+    if (!cols.includes("inquiry_status")) conn.run("ALTER TABLE leads ADD COLUMN inquiry_status TEXT DEFAULT ''");
+    if (!cols.includes("inquiry_email")) conn.run("ALTER TABLE leads ADD COLUMN inquiry_email TEXT");
+    if (!cols.includes("inquiry_message_id")) conn.run("ALTER TABLE leads ADD COLUMN inquiry_message_id TEXT");
   },
 ];
 

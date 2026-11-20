@@ -23,7 +23,8 @@ const expected = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/expected.json
 // Large / small coins were dropped on purpose (Ninja Bucks are one number now), and
 // certificates_printed was added; tests/test_certificates.mjs covers both.
 const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled", "beltsUpdated", "jr_skills",
-  "large_coins", "small_coins", "large_coins_remaining", "small_coins_remaining", "certificates_printed", "printed"]);
+  "large_coins", "small_coins", "large_coins_remaining", "small_coins_remaining", "certificates_printed", "printed",
+  "inquiry_status", "inquiry_email", "inquiry_message_id"]); // inquiry columns: tests/test_inquiry_email.mjs
 
 // Changes made on purpose since the recording:
 //  - giving coins: coins are not a reward any more, so that step now has nothing to give;
