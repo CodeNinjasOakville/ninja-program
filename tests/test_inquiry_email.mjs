@@ -100,6 +100,27 @@ const loose = parseInquiryEmail({
 check("unlabelled email + phone found", loose.email === "morgan.v@example.com" && loose.phone_number === "905-555-0177", loose);
 check("child's name left blank when not found", loose.ninja_name === "");
 
+// ---- ChildcareCRM "new family" email (the CRM this centre uses): label, then the value under it
+const CCRM_INTRO = "Congratulations! A new family has submitted their information for your CORE programs.   " +
+  "Please log into ChildcareCRM to view the full family record.  Here are a few details:";
+const ccrmText = (email) => [CCRM_INTRO, "", "Parent Name", "", "Dana Cruz", "", "Email", "", email, "", "Phone number", "",
+  "(905) 555-0150", "", "Questions? Contact support@childcarecrm.com"].join("\n");
+const ccrmFrom = "ChildcareCRM <notifications@childcarecrm.com>";
+const ccrm = parseInquiryEmail({ subject: "New Family Inquiry", from: ccrmFrom, text: ccrmText("dana.cruz@example.com") }, TODAY);
+check("ChildcareCRM text email", same(pick(ccrm, MAIN), {
+  ninja_name: "", parent_name: "Dana Cruz", phone_number: "(905) 555-0150", email: "dana.cruz@example.com",
+  age: "", gbs_date: "", gbs_time: "", gbs_type: "CORE",
+}), pick(ccrm, MAIN));
+const ccrmHtml = parseInquiryEmail({ subject: "New Family Inquiry", from: ccrmFrom, html:
+  `<p>${CCRM_INTRO}</p><p><b>Parent Name</b><br>Dana Cruz</p>` +
+  `<p><b>Email</b><br><a href="mailto:dana.cruz@example.com">dana.cruz@example.com</a></p><p><b>Phone number</b><br>(905) 555-0150</p>` }, TODAY);
+check("ChildcareCRM HTML email", same(pick(ccrmHtml, MAIN), pick(ccrm, MAIN)), pick(ccrmHtml, MAIN));
+const ccrmNoEmail = parseInquiryEmail({ from: ccrmFrom, text: ccrmText("") }, TODAY);
+check("no parent email: the CRM's support address is not used", ccrmNoEmail.email === "" && ccrmNoEmail.parent_name === "Dana Cruz", ccrmNoEmail);
+const forwardedByStaff = parseInquiryEmail({ from: "Front Desk <frontdesk@example.org>",
+  text: "From: ChildcareCRM <notifications@childcarecrm.com>\nTo: frontdesk@example.org\n\n" + ccrmText("") }, TODAY);
+check("forwarded without a parent email: neither the CRM's nor our own address is used", forwardedByStaff.email === "", forwardedByStaff.email);
+
 // ---- helpers
 check("date + time split", same(splitDateTime("Saturday, Nov 21 @ 10am"), { date: "Saturday, Nov 21", time: "10am" }));
 check("date only stays as it is", same(splitDateTime("Nov 21, 2026"), { date: "Nov 21, 2026", time: "" }));

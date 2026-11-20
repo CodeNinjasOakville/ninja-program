@@ -122,6 +122,8 @@ const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 const PHONE_RE = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
 // Addresses that send the notification, not the parent's.
 const SYSTEM_SENDER = /no-?reply|do-?not-?reply|notifications?@|mailer|postmaster|bounce/i;
+// The CRM's own domains: never the parent's address.
+const CRM_DOMAINS = ["childcarecrm.com"];
 const clip = (s, n) => String(s || "").trim().slice(0, n);
 
 /**
@@ -165,10 +167,20 @@ export function parseInquiryEmail(mail, todayISO) {
   }
   if (lead.gbs_date && !lead.gbs_time && TIME_RE.test(lead.gbs_date)) Object.assign(lead, (({ date, time }) => ({ gbs_date: date, gbs_time: time }))(splitDateTime(lead.gbs_date)));
 
-  // No labelled email / phone: take the first one in the text that isn't the CRM's own address.
+  // The program from the opening sentence, e.g. ChildcareCRM's "submitted their information for your CORE programs".
+  if (!lead.gbs_type) {
+    const program = text.match(/\binformation for (?:your|our|the) (.{1,40}?) programs?\b/i);
+    if (program) lead.gbs_type = program[1].trim();
+  }
+
+  // No labelled email / phone: take the first one in the text that isn't the CRM's (or the sender's) own,
+  // e.g. not support@childcarecrm.com from the footer.
   if (!lead.email) {
+    const ownDomains = [...String(mail.from || "").matchAll(new RegExp(EMAIL_RE.source, "gi"))]
+      .map((m) => m[0].split("@")[1].toLowerCase()).concat(CRM_DOMAINS);
+    const isOwn = (e) => { const d = e.split("@")[1].toLowerCase(); return ownDomains.some((o) => d === o || d.endsWith("." + o)); };
     const emails = text.match(new RegExp(EMAIL_RE.source, "gi")) || [];
-    lead.email = emails.find((e) => !SYSTEM_SENDER.test(e) && !String(mail.from || "").toLowerCase().includes(e.toLowerCase())) || "";
+    lead.email = emails.find((e) => !SYSTEM_SENDER.test(e) && !isOwn(e)) || "";
   }
   if (!lead.phone_number) lead.phone_number = (text.match(PHONE_RE) || [""])[0];
 

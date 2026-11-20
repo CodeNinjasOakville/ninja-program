@@ -5,6 +5,11 @@ When the CRM emails you about a new inquiry, a lead appears on the **Leads** tab
 original email (kept on the card), fill in what's missing and press **✓ Mark complete**. It then
 becomes a normal lead (and shows in Upcoming GBS once it has a GBS date).
 
+**Our CRM is ChildcareCRM.** Its "new family" email ("Congratulations! A new family has submitted
+their information for your CORE programs...") only gives **Parent Name, Email and Phone number**,
+plus the program (CORE). So every inquiry arrives without the child's name, age or GBS date:
+look the family up in ChildcareCRM (or call them) and fill those in before marking it complete.
+
 ```
 CRM ──email──> Outlook ──rule: redirect──> Postmark (inbound address)
                                               │  sends the email as JSON
@@ -56,7 +61,8 @@ The function's address is shown on its page, like
 
 ## 5. Outlook rule (sends the CRM emails to Postmark)
 Outlook on the web → **Settings** → **Mail** → **Rules** → **Add new rule**:
-- Condition: **From** = the CRM's sending address (or **Subject includes** the CRM's subject, e.g. "New Inquiry").
+- Condition: **Subject or body includes** `A new family has submitted their information`
+  (the opening line of ChildcareCRM's new-family email). Or **From** = the address those emails come from.
 - Action: **Redirect to** = the Postmark inbound address. (Redirect keeps the email exactly as the
   CRM sent it; "Forward to" also works.)
 - Keep "Stop processing more rules" off, so the email still lands in your inbox as well.
