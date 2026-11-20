@@ -378,6 +378,51 @@ td.zero { color: #b8bdc8; }
   border-radius: 4px;
 }
 
+/* Leads: upcoming GBS as cards, grouped by day (same look as the JR Ninjas cards) */
+.gbs-upcoming { margin-bottom: 20px; }
+.gbs-upcoming-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.gbs-upcoming-head h3 { margin: 0; font-size: 15px; }
+.gbs-day-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  margin: 14px 0 8px; font-size: 14px; font-weight: 600;
+}
+.gbs-when {
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  background: #eef0f5; color: #4b5263; border-radius: 999px; padding: 2px 10px;
+}
+.gbs-day-head.soon .gbs-when { background: var(--accent); color: #fff; }
+.gbs-day { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; align-items: start; }
+.gbs-card {
+  background: #fff; border: 1px solid var(--border); border-left: 5px solid var(--accent);
+  border-radius: 8px; padding: 12px 14px; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+}
+.gbs-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.gbs-time { font-size: 18px; font-weight: 700; color: var(--accent-dark); }
+.gbs-time.missing { font-size: 13px; color: #8a5a00; }
+.gbs-card-tools { display: flex; align-items: center; gap: 2px; }
+.gbs-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.gbs-name { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+.gbs-age { color: var(--muted); font-size: 12.5px; }
+.gbs-type { background: #e3e8fb; color: var(--accent-dark); border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 600; }
+.gbs-who .enrolled-badge { margin-left: 0; }
+.gbs-parent { display: flex; flex-direction: column; gap: 3px; }
+.gbs-parent-name { font-weight: 600; }
+.gbs-contact { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.gbs-contact a { color: var(--accent); text-decoration: none; overflow-wrap: anywhere; }
+.gbs-contact a:hover { text-decoration: underline; }
+.gbs-contact.dup a { color: #8a5a00; }
+.gbs-contact .dup-badge { margin-left: 0; }
+.gbs-contact-icon { width: 16px; text-align: center; color: var(--muted); }
+.gbs-facts { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; background: #f7f8fb; border-radius: 6px; padding: 8px 10px; }
+.gbs-fact-label { font-size: 11.5px; font-weight: 700; color: var(--muted); padding-top: 1px; }
+.gbs-fact { white-space: pre-wrap; overflow-wrap: anywhere; }
+.gbs-warnings { display: flex; flex-wrap: wrap; gap: 4px; }
+.gbs-warnings span { background: #fff3d6; color: #8a5a00; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 600; }
+.gbs-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; border-top: 1px solid #f0f1f5; padding-top: 8px; }
+.gbs-chip { background: #eef0f5; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; }
+.gbs-entry { margin-left: auto; font-size: 11px; color: var(--muted); }
+
 /* Lead sharing a phone number or email with another lead. */
 td.dup-cell { background: #fff3d6; }
 .dup-badge {

@@ -63,6 +63,9 @@ check("upcoming soonest first, then past most recent first, then no date newest 
 check("each lead is tagged with its group",
   sorted.map((r) => r.gbs_group).join(",") === "upcoming,upcoming,upcoming,upcoming,past,past,none,none",
   sorted.map((r) => r.gbs_group));
+check("each lead carries its GBS date as read",
+  sorted.map((r) => r.gbs_day).join(",") === "2026-10-31,2026-10-31,2026-11-01,2026-11-07,2026-10-30,2026-09-30,,",
+  sorted.map((r) => r.gbs_day));
 check("the leads passed in are not changed", leads[0].gbs_group === undefined);
 
 // ---- the route: ?sort=gbs only, plain order unchanged

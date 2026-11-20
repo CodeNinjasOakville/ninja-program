@@ -96,14 +96,15 @@ export function gbsTimeMinutes(value) {
 }
 
 /**
- * Leads in GBS order, each given gbs_group: "upcoming" | "past" | "none".
+ * Leads in GBS order, each given gbs_group: "upcoming" | "past" | "none",
+ * and gbs_day: the GBS date as read ("YYYY-MM-DD", "" when it can't be read).
  * today is "YYYY-MM-DD"; a GBS today counts as upcoming.
  */
 export function sortLeadsByGbs(rows, today) {
   const keyed = rows.map((row) => {
     const date = parseGbsDate(row.gbs_date, today);
     const group = !date ? "none" : date >= today ? "upcoming" : "past";
-    return { row: { ...row, gbs_group: group }, date, time: gbsTimeMinutes(row.gbs_time), group };
+    return { row: { ...row, gbs_group: group, gbs_day: date }, date, time: gbsTimeMinutes(row.gbs_time), group };
   });
   const rank = { upcoming: 0, past: 1, none: 2 };
   keyed.sort((a, b) => {

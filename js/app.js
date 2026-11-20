@@ -1977,6 +1977,118 @@ const LEAD_GROUP_TITLES = {
   none: "No GBS date",
 };
 
+// ---- Upcoming GBS as cards: one per lead, grouped by day, soonest first ----
+// The most useful things first: when (day + time), who (child, age, GBS type), how to reach the
+// parent (tap to call / email), then what staff should know (coding experience, comments).
+
+// "2026-11-21" -> {when: "Tomorrow", date: "Saturday, Nov 21", days: 1}
+function gbsDayLabel(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const day = new Date(y, m - 1, d);
+  const today = new Date();
+  const days = Math.round((day - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  const when = days <= 0 ? "Today" : days === 1 ? "Tomorrow" : `In ${days} days`;
+  return { when, days, date: day.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }) };
+}
+
+function leadContact(icon, value, href, dup, dupWhat) {
+  const line = el("div", { class: "gbs-contact" + (dup ? " dup" : "") }, [el("span", { class: "gbs-contact-icon", text: icon })]);
+  line.appendChild(el("a", { href, text: value }));
+  if (dup) line.appendChild(el("span", { class: "dup-badge", title: `Another lead has this same ${dupWhat}`, text: "Duplicate" }));
+  return line;
+}
+
+function upcomingLeadCard(row, flags) {
+  const card = el("div", { class: "gbs-card" });
+
+  // When
+  const head = el("div", { class: "gbs-card-head" });
+  head.appendChild(el("div", { class: "gbs-time" + (row.gbs_time ? "" : " missing"), text: row.gbs_time || "Time not set" }));
+  const tools = el("div", { class: "gbs-card-tools" });
+  const box = el("input", { type: "checkbox", title: "Select (for totem tags or delete)" });
+  box.checked = leadsSelected.has(row.id);
+  box.addEventListener("change", () => {
+    if (box.checked) leadsSelected.add(row.id); else leadsSelected.delete(row.id);
+    updateLeadsSelectionUI();
+  });
+  const editBtn = el("button", { class: "btn-icon btn-edit", type: "button", title: "Edit this lead", text: "\u270e" });
+  editBtn.addEventListener("click", () => openLeadModal(row));
+  tools.append(box, editBtn);
+  head.appendChild(tools);
+  card.appendChild(head);
+
+  // Who
+  const who = el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name", text: row.ninja_name || "(no name)" })]);
+  if (row.age) who.appendChild(el("span", { class: "gbs-age", text: `Age ${row.age}` }));
+  if (row.gbs_type) who.appendChild(el("span", { class: "gbs-type", text: row.gbs_type }));
+  if (row.enrolled) {
+    const badge = el("button", { class: "enrolled-badge", type: "button", title: "This child is now a Ninja - open their page", text: "Enrolled" });
+    badge.addEventListener("click", () => openNinjaProfile({ uid: row.ninja_uid }));
+    who.appendChild(badge);
+  }
+  card.appendChild(who);
+
+  // Parent + how to reach them
+  const contact = el("div", { class: "gbs-parent" });
+  contact.appendChild(el("div", { class: "gbs-parent-name", text: row.parent_name ? `Parent: ${row.parent_name}` : "Parent: not given" }));
+  if (row.phone_number) {
+    contact.appendChild(leadContact("\u260e", row.phone_number, "tel:" + String(row.phone_number).replace(/[^\d+]/g, ""), flags.isDupPhone(row), "phone number"));
+  }
+  if (row.email) contact.appendChild(leadContact("\u2709", row.email, "mailto:" + row.email, flags.isDupEmail(row), "email"));
+  card.appendChild(contact);
+
+  // What staff should know
+  const facts = [["Coding experience", row.coding_experience], ["Comments", row.comments]].filter(([, v]) => String(v || "").trim());
+  if (facts.length) {
+    const dl = el("div", { class: "gbs-facts" });
+    facts.forEach(([label, value]) => dl.append(el("div", { class: "gbs-fact-label", text: label }), el("div", { class: "gbs-fact", text: value })));
+    card.appendChild(dl);
+  }
+
+  // Things to sort out before they arrive
+  const warnings = [];
+  if (!row.gbs_time) warnings.push("No GBS time");
+  if (!row.phone_number && !row.email) warnings.push("No phone or email");
+  if (!row.staff_name) warnings.push("No staff assigned");
+  if (warnings.length) card.appendChild(el("div", { class: "gbs-warnings" }, warnings.map((w) => el("span", { text: "\u26a0 " + w }))));
+
+  const foot = el("div", { class: "gbs-card-foot" });
+  if (row.staff_name) foot.appendChild(el("span", { class: "gbs-chip", text: `Staff: ${row.staff_name}` }));
+  if (row.post_gbs_follow_up) foot.appendChild(el("span", { class: "gbs-chip", text: `Follow-up: ${row.post_gbs_follow_up}` }));
+  if (row.gbs_completed) foot.appendChild(el("span", { class: "gbs-chip", text: `Completed: ${row.gbs_completed}` }));
+  foot.appendChild(el("span", { class: "gbs-entry", text: `Lead #${row.entry_number}` + (row.lead_date ? ` · added ${row.lead_date}` : "") }));
+  card.appendChild(foot);
+  return card;
+}
+
+function renderUpcomingLeads(rows, flags) {
+  const box = document.getElementById("upcomingLeads");
+  box.innerHTML = "";
+  box.style.display = rows.length ? "" : "none";
+  if (!rows.length) return;
+  const week = rows.filter((r) => gbsDayLabel(r.gbs_day).days < 7).length;
+  box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
+    el("h3", { text: `Upcoming GBS (${rows.length})` }),
+    el("span", { class: "muted", text: `${week} in the next 7 days · soonest first · tap a phone number or email to contact the parent` }),
+  ]));
+  let day = null, group = null;
+  rows.forEach((row) => {
+    if (row.gbs_day !== day) {
+      day = row.gbs_day;
+      const label = gbsDayLabel(day);
+      const count = rows.filter((r) => r.gbs_day === day).length;
+      box.appendChild(el("div", { class: "gbs-day-head" + (label.days <= 1 ? " soon" : "") }, [
+        el("span", { class: "gbs-when", text: label.when }),
+        el("span", { text: label.date }),
+        el("span", { class: "muted", text: `${count} GBS` }),
+      ]));
+      group = el("div", { class: "gbs-day" });
+      box.appendChild(group);
+    }
+    group.appendChild(upcomingLeadCard(row, flags));
+  });
+}
+
 async function loadLeads() {
   const search = document.getElementById("leadsSearch").value;
   // Upcoming GBS first (soonest at the top), then past GBS (most recent first), then no GBS date.
@@ -2023,6 +2135,13 @@ async function loadLeads() {
   // Old saved copies of the leads code ignore ?sort=gbs: show the list as-is and offer the update.
   const sortedByGbs = allRows.every((r) => r.gbs_group);
   if (!sortedByGbs) offerLatestVersion("the leads list couldn't be sorted by GBS date");
+  // Upcoming GBS get cards above the table (not in the duplicates view, which needs the table).
+  const showCards = sortedByGbs && !leadsDuplicatesOnly;
+  const upcoming = showCards ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day) : [];
+  renderUpcomingLeads(upcoming, { isDupPhone, isDupEmail });
+  if (upcoming.length) rows = rows.filter((r) => !upcoming.includes(r));
+  document.getElementById("leadsTableWrap").style.display = upcoming.length && !rows.length ? "none" : "";
+  if (upcoming.length) document.getElementById("leadsEmpty").style.display = "none";
   const groupCounts = {};
   rows.forEach((r) => { groupCounts[r.gbs_group] = (groupCounts[r.gbs_group] || 0) + 1; });
   const columnCount = document.querySelectorAll("#leadsTable thead th").length;
