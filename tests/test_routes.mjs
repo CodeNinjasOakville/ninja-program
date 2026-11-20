@@ -20,7 +20,31 @@ const expected = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/expected.json
 
 // The Ninja/family link fields were added after the recording; tests/test_ninjas.mjs covers them.
 // So was the jr_skills setting (tests/test_jr_skills.mjs).
-const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled", "beltsUpdated", "jr_skills"]);
+// Large / small coins were dropped on purpose (Ninja Bucks are one number now), and
+// certificates_printed was added; tests/test_certificates.mjs covers both.
+const DROP = new Set(["created_at", "downloadUrl", "bytes", "ninja_uid", "family_uid", "family_name", "family_email", "family_phone", "enrolled", "beltsUpdated", "jr_skills",
+  "large_coins", "small_coins", "large_coins_remaining", "small_coins_remaining", "certificates_printed", "printed"]);
+
+// Changes made on purpose since the recording:
+//  - giving coins: coins are not a reward any more, so that step now has nothing to give;
+//  - saving certificates records them as "Certificate Printed", which is not "given".
+function intended(step, want) {
+  if (step.body && ("small_coins" in step.body || "large_coins" in step.body)) {
+    return { status: 400, data: { error: "No reward amounts were entered." } };
+  }
+  const data = structuredClone(want.data);
+  if (Array.isArray(data)) {
+    for (const r of data) if (r && r.entry_type === "Certificate Printed") r.reward_type = "Certificate Printed";
+  }
+  // Every certificate receipt in the recording was a printed one, so none count as given now.
+  // (No belts are handed out in the scenario, so certificates owed = belts owed.)
+  if (data && data.overall && data.overall.certificates && data.overall.certificates.given) {
+    data.overall.certificates.given = 0;
+    data.overall.certificates.remaining = data.overall.certificates.earned;
+    for (const row of data.rows) row.certificates_remaining = row.belts_remaining;
+  }
+  return { ...want, data };
+}
 function norm(v) {
   if (Array.isArray(v)) return v.map(norm);
   if (v && typeof v === "object" && !(v instanceof Uint8Array)) {
@@ -44,7 +68,7 @@ for (let i = 0; i < scenario.length; i++) {
     status = e.status || 500;
     data = { error: e.message };
   }
-  const want = expected[i];
+  const want = intended(s, expected[i]);
   const label = `#${i} ${s.method} ${s.url} ${s.note || ""}`;
   check(label + " status", status === want.status, { got: status, want: want.status, data });
   check(label + " body", JSON.stringify(norm(data)) === JSON.stringify(norm(want.data)), { got: norm(data), want: norm(want.data) });

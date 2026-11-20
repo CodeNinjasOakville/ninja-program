@@ -212,13 +212,22 @@
 
       <div class="totals-grid" id="rewardsTotals"></div>
 
+      <!-- Certificates whose PDF was saved but that nobody has marked as handed out yet. -->
+      <div class="cert-ready" id="certReady" style="display:none;">
+        <div class="cert-ready-head">
+          <h3>&#127891; Printed certificates to hand out <span class="cert-ready-count" id="certReadyCount"></span></h3>
+          <span class="muted">Printing doesn't count as given. Press <b>Given</b> once the Ninja has it.</span>
+        </div>
+        <div class="cert-ready-list" id="certReadyList"></div>
+      </div>
+
       <div class="table-wrap">
         <table id="rewardsTable">
           <thead>
             <tr>
-              <th>Name</th><th>Belt Progression</th><th>Ninja Bucks</th>
-              <th>Large Coins</th><th>Small Coins</th><th>3D Prints</th>
-              <th>Certificates</th><th>New Belts</th><th></th>
+              <th>Name</th><th>Belt Progression</th><th>Ninja Bucks</th><th>3D Prints</th>
+              <th title="Owed in total; how many of those are printed and ready is shown underneath">Certificates</th>
+              <th>New Belts</th><th></th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -230,7 +239,7 @@
 
     <!-- ============ REWARD HISTORY ============ -->
     <section id="tab-history" class="tab-panel">
-      <p class="page-intro">Every reward handed out and certificate printed, newest first. &#10006; undoes one
+      <p class="page-intro">Every reward handed out and certificate printed (a "Certificate Printed" row means printed, not handed out yet), newest first. &#10006; undoes one
         (it becomes owed again).</p>
       <div class="panel-header">
         <input type="text" id="historySearch" class="panel-search" placeholder="Search name, reward, date, details&hellip;">
@@ -398,10 +407,8 @@
       </div>
       <div class="form-grid">
         <div class="field"><label for="gr_ninja_bucks">Ninja Bucks</label><div class="hint" id="gr_owed_ninja_bucks"></div><input type="text" id="gr_ninja_bucks" value="0"></div>
-        <div class="field"><label for="gr_large_coins">Large Coins ($10)</label><div class="hint" id="gr_owed_large_coins"></div><input type="text" id="gr_large_coins" value="0"></div>
-        <div class="field"><label for="gr_small_coins">Small Coins ($1)</label><div class="hint" id="gr_owed_small_coins"></div><input type="text" id="gr_small_coins" value="0"></div>
         <div class="field"><label for="gr_prints">3D Prints</label><div class="hint" id="gr_owed_prints"></div><input type="text" id="gr_prints" value="0"></div>
-        <div class="field"><label for="gr_certificates">Certificates</label><div class="hint" id="gr_owed_certificates"></div><input type="text" id="gr_certificates" value="0"></div>
+        <div class="field"><label for="gr_certificates">Certificates handed out</label><div class="hint" id="gr_owed_certificates"></div><input type="text" id="gr_certificates" value="0"></div>
         <div class="field"><label for="gr_belts">New Belts</label><div class="hint" id="gr_owed_belts"></div><input type="text" id="gr_belts" value="0"></div>
       </div>
       <div class="modal-actions">

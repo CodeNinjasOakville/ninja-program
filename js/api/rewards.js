@@ -52,13 +52,28 @@ route("POST", "/api/rewards/give", ({ body }) => {
   const rows = [];
   for (const name of names) {
     for (const [field, amount] of Object.entries(amounts)) {
-      if (amount > 0) rows.push([now, name, rewards.FIELD_TO_REWARD_TYPE[field], amount, "", "Reward Given"]);
+      if (amount <= 0) continue;
+      if (field === "certificates") rows.push(...certificateRows(name, amount, now));
+      else rows.push([now, name, rewards.FIELD_TO_REWARD_TYPE[field], amount, "", "Reward Given"]);
     }
   }
   conn.transaction(() => conn.runMany(
     "INSERT INTO receipts (date, name, reward_type, amount, details, entry_type) VALUES (?, ?, ?, ?, ?, ?)", rows));
   return { ok: true, recorded: rows.length };
 });
+
+// Certificates handed out are recorded per belt, so the printed list and the "to print" list
+// both know which ones are done: printed ones first (oldest first), then ones not printed yet.
+function certificateRows(name, amount, date) {
+  const key = name.toLowerCase();
+  const belts = [
+    ...rewards.getPrintedCertificates(conn).filter((c) => c.name.toLowerCase() === key),
+    ...rewards.getOutstandingCertificates(conn).filter((c) => c.name.toLowerCase() === key),
+  ].map((c) => c.belt).slice(0, amount);
+  const rows = belts.map((belt) => [date, name, "Certificate", 1, `${belt} Belt Certificate`, "Reward Given"]);
+  if (amount > belts.length) rows.push([date, name, "Certificate", amount - belts.length, "", "Reward Given"]);
+  return rows;
+}
 
 route("GET", "/api/rewards/history", () => conn.all("SELECT * FROM receipts ORDER BY id DESC"));
 
@@ -68,10 +83,11 @@ route("DELETE", "/api/rewards/history/:id", ({ params }) => {
   return { ok: true };
 });
 
-// Undo every certificate transaction at once, so all certificates become owed again.
+// Undo every certificate transaction (printed and given) at once, so all certificates become owed again.
 route("POST", "/api/rewards/history/clear-certificates", () => {
-  const { count } = conn.get("SELECT COUNT(*) AS count FROM receipts WHERE reward_type = 'Certificate'");
-  conn.run("DELETE FROM receipts WHERE reward_type = 'Certificate'");
+  const where = "reward_type IN ('Certificate', 'Certificate Printed')";
+  const { count } = conn.get(`SELECT COUNT(*) AS count FROM receipts WHERE ${where}`);
+  conn.run(`DELETE FROM receipts WHERE ${where}`);
   return { ok: true, deleted: count };
 });
 
@@ -79,8 +95,25 @@ route("POST", "/api/rewards/history/clear-certificates", () => {
 
 route("GET", "/api/certificates/outstanding", () => rewards.getOutstandingCertificates(conn));
 
+// Printed but not handed out yet: [{id, name, belt, date}], oldest first.
+route("GET", "/api/certificates/printed", () => rewards.getPrintedCertificates(conn));
+
+// Body: {items: [{name, belt}]} - these certificates were handed out.
+route("POST", "/api/certificates/given", ({ body }) => {
+  const items = (body.items || [])
+    .map((i) => ({ name: String(i.name || "").trim(), belt: rewards.formatBeltName(rewards.normalizeBelt(i.belt)) }))
+    .filter((i) => i.name && i.belt);
+  if (!items.length) throw new ApiError("No certificates were specified.");
+  const now = todayISO();
+  conn.transaction(() => conn.runMany(
+    "INSERT INTO receipts (date, name, reward_type, amount, details, entry_type) VALUES (?, ?, ?, ?, ?, ?)",
+    items.map((i) => [now, i.name, "Certificate", 1, `${i.belt} Belt Certificate`, "Reward Given"])));
+  return { ok: true, recorded: items.length };
+});
+
 // Body: {generate_all: true} | {items: [{name, belt}]} | {name, belts: [...]}
-// Generates the PDF, then records each as a "Certificate" receipt so it isn't generated twice.
+// Generates the PDF, then records each as "Certificate Printed" so it isn't generated twice.
+// Printed is not given: the certificate stays owed until someone marks it as handed out.
 route("POST", "/api/certificates/generate", async ({ body }) => {
   let items;
   if (body.generate_all) {
@@ -110,7 +143,7 @@ route("POST", "/api/certificates/generate", async ({ body }) => {
   const now = todayISO();
   conn.transaction(() => conn.runMany(
     "INSERT INTO receipts (date, name, reward_type, amount, details, entry_type) VALUES (?, ?, ?, ?, ?, ?)",
-    items.map((i) => [now, i.name, "Certificate", 1, `${i.belt} Belt Certificate`, "Certificate Printed"])));
+    items.map((i) => [now, i.name, rewards.CERT_PRINTED, 1, `${i.belt} Belt Certificate`, "Certificate Printed"])));
 
   return { ok: true, count: items.length, filename: pdf.filename, bytes: pdf.bytes };
 });

@@ -14,10 +14,9 @@ import { lowerCompare } from "./util.js";
 // Per-Ninja columns of the Rewards owed list, and the reward type each one totals into.
 export const OWED_COLUMNS = {
   ninja_bucks_remaining: "ninja_bucks",
-  large_coins_remaining: "large_coins",
-  small_coins_remaining: "small_coins",
   prints_remaining: "prints",
   certificates_remaining: "certificates",
+  certificates_printed: "certificates_printed",
   belts_remaining: "belts",
 };
 

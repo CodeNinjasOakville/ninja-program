@@ -7,8 +7,8 @@ import { handleRequest } from "../js/api/index.js";
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const owedRow = (name, bucks, prints = 0) => ({
-  name, progression: "", ninja_bucks_remaining: bucks, large_coins_remaining: Math.floor(bucks / 10),
-  small_coins_remaining: bucks % 10, prints_remaining: prints, certificates_remaining: prints, belts_remaining: prints,
+  name, progression: "", ninja_bucks_remaining: bucks, prints_remaining: prints, certificates_remaining: prints,
+  certificates_printed: 0, belts_remaining: prints,
 });
 
 // ---- the logic on its own
@@ -40,7 +40,7 @@ check("a Ninja with nothing owed is listed with owed = null", monday.ninjas[2].o
 check("rows are just that day's Ninjas who are owed", same(monday.rows.map((r) => r.name), ["Ann Bo", "Cy Do"]), monday.rows);
 check("attending and owed counts", monday.attending === 3 && monday.owed_count === 2, monday);
 check("totals add up what that day's Ninjas are owed",
-  same(monday.totals, { ninja_bucks: 20, large_coins: 1, small_coins: 10, prints: 4, certificates: 4, belts: 4 }), monday.totals);
+  same(monday.totals, { ninja_bucks: 20, prints: 4, certificates: 4, certificates_printed: 0, belts: 4 }), monday.totals);
 check("the day's rows carry their class times", same(monday.rows[0].time_slots, ["4 PM - 5 PM", "5 PM - 6 PM"]));
 check("the rows passed in are not changed", rows[0].time_slots === undefined);
 
@@ -74,10 +74,10 @@ check("Leo matches his Belt-ups entry despite case/spacing", !!mon.ninjas.find((
 check("Alex matches 'Alex J. Chen' on first + last name", !!mon.ninjas.find((n) => n.name === "Alex Chen").owed);
 check("Monday owed: Alex, Leo and Mia (Mia still owed her print/certificate/belt)", mon.owed_count === 3 && mon.rows.length === 3, mon.rows);
 check("Monday totals match the Rewards owed rows",
-  same(mon.totals, { ninja_bucks: 20, large_coins: 1, small_coins: 10, prints: 5, certificates: 5, belts: 5 }), mon.totals);
+  same(mon.totals, { ninja_bucks: 20, prints: 5, certificates: 5, certificates_printed: 0, belts: 5 }), mon.totals);
 
 const summary = await call("GET", "/api/rewards/summary");
-const fields = ["ninja_bucks", "large_coins", "small_coins", "prints", "certificates", "belts"];
+const fields = ["ninja_bucks", "prints", "certificates", "belts"];
 const all = (await Promise.all(["Monday", "Tuesday", "Wednesday"].map((d) => call("GET", `/api/rewards/by-day?day=${d}`))));
 const mondayNames = new Set(mon.rows.map((r) => r.name));
 const sameAsSummary = mon.rows.every((r) => {

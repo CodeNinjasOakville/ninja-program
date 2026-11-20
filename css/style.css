@@ -255,6 +255,24 @@ td.comments-cell {
   margin-top: 2px;
 }
 
+/* Rewards owed: printed certificates waiting to be handed out */
+td.zero { color: #b8bdc8; }
+.cert-printed-note { font-size: 11px; color: #2b4bb0; white-space: nowrap; }
+.cert-ready {
+  background: #f5f7ff; border: 1px solid #d5dcf5; border-radius: 8px;
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.cert-ready-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 8px; }
+.cert-ready-head h3 { margin: 0; font-size: 14px; }
+.cert-ready-count { display: inline-block; min-width: 20px; padding: 0 7px; border-radius: 10px; background: var(--accent); color: #fff; font-size: 12px; text-align: center; }
+.cert-ready-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.cert-ready-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+}
+.cert-ready-item .name-link { font-weight: 600; text-align: left; }
+.btn-small { padding: 3px 10px; font-size: 12px; white-space: nowrap; }
+
 /* ---------- Modals ---------- */
 
 .modal-overlay {
@@ -534,17 +552,65 @@ td.dup-cell { background: #fff3d6; }
   align-items: start;
 }
 .jr-summary { grid-column: 1 / -1; }
+/* Priority colours: amber = needs work, grey = needs a note, green = on track. */
+.jr-toolbar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.jr-filter {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid var(--border); border-radius: 999px;
+  padding: 6px 14px; font-size: 13px; color: var(--ink); cursor: pointer;
+}
+.jr-filter b { font-size: 14px; }
+.jr-filter::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #c5cad6; }
+.jr-filter.all::before { display: none; }
+.jr-filter.attention::before { background: #e0a100; }
+.jr-filter.stale::before { background: #8f98aa; }
+.jr-filter.ok::before { background: #2f9e62; }
+.jr-filter:hover { border-color: var(--accent); }
+.jr-filter.active { border-color: var(--accent); background: #eef0fa; color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.jr-group-head {
+  grid-column: 1 / -1; margin: 10px 0 -2px; font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.jr-group-head::before { content: ""; width: 10px; height: 10px; border-radius: 50%; }
+.jr-group-head.attention { color: #8a5a00; }
+.jr-group-head.attention::before { background: #e0a100; }
+.jr-group-head.stale::before { background: #8f98aa; }
+.jr-group-head.ok { color: #1d7a45; }
+.jr-group-head.ok::before { background: #2f9e62; }
+
 .jr-card {
   background: #fff;
   border: 1px solid var(--border);
-  border-top: 3px solid #2f9e62;
+  border-left: 5px solid #2f9e62;
   border-radius: 8px;
   padding: 12px 14px;
   min-width: 0;
+  display: flex; flex-direction: column; gap: 8px;
 }
-.jr-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
-.jr-card-head .person-name { font-size: 14px; overflow-wrap: anywhere; }
+.jr-card.prio-attention { border-left-color: #e0a100; }
+.jr-card.prio-stale { border-left-color: #8f98aa; }
+.jr-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.jr-card-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.jr-card-title .name-link { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; text-align: left; }
 .jr-belt { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.jr-prio-badge { font-size: 11.5px; font-weight: 600; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.jr-prio-badge.attention { background: #fff3d6; color: #8a5a00; }
+.jr-prio-badge.stale { background: #eef0f5; color: #4b5263; }
+.jr-prio-badge.ok { background: #dff5e8; color: #1d7a45; }
+.jr-sessions { gap: 4px; }
+.jr-focus { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+.jr-focus-row { display: grid; grid-template-columns: 82px 1fr; gap: 6px; align-items: start; }
+.jr-focus-label { font-weight: 700; font-size: 11.5px; padding-top: 2px; color: var(--muted); }
+.jr-focus-row.needs_work .jr-focus-label { color: #8a5a00; }
+.jr-focus-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.jr-focus-row.needs_work .jr-chip { font-size: 12.5px; padding: 2px 10px; font-weight: 600; border: 1px solid #f0d08a; }
+.jr-focus-done { font-size: 12px; color: #1d7a45; cursor: help; }
+.jr-card-foot { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.jr-card-foot .jr-checklist { flex: 1 1 auto; margin: 4px 0 0; }
+.jr-card-foot .jr-checklist[open] { flex-basis: 100%; order: 2; }
+.jr-open-add { padding: 4px 12px; font-size: 12.5px; }
+.jr-no-notes { padding: 6px 0; }
 .jr-skill-summary { margin: 8px 0 4px; font-size: 12.5px; }
 .jr-skill-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 3px 0; }
 .jr-skill-head { font-weight: 600; color: var(--muted); margin-right: 2px; }
@@ -562,7 +628,7 @@ td.dup-cell { background: #fff3d6; }
 .jr-skill-select.needs_work { border-color: #e0b04a; }
 .jr-skill-select.done { border-color: #6cc497; }
 .jr-skill-help { margin-top: 6px; font-size: 11px; }
-.jr-add { margin: 10px 0 8px; }
+.jr-add { margin: 0; }
 .jr-card textarea.jr-draft, .modal .jr-card textarea.jr-draft {
   width: 100%;
   height: auto;
@@ -575,8 +641,9 @@ td.dup-cell { background: #fff3d6; }
 .jr-author { flex: 1; min-width: 0; max-width: 180px; margin-right: auto; }
 .jr-add .banner, .jr-edit .banner { margin-top: 6px; }
 .jr-notes { border-top: 1px solid #f0f1f5; }
+.jr-notes .link-btn { margin-top: 4px; }
 .jr-note { padding: 8px 0; border-bottom: 1px solid #f0f1f5; }
-.jr-note.latest .jr-note-text { font-weight: 600; }
+.jr-note.latest .jr-note-text { font-size: 13.5px; }
 .jr-note-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
 .jr-note-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--muted); margin-top: 3px; }
 .jr-note-tools { display: flex; opacity: 0; transition: opacity 0.1s; }

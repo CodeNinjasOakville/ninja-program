@@ -452,7 +452,8 @@ async function openNinjaProfile({ uid, name }) {
       ["belts", "new belt to hand out", "new belts to hand out"]]
       .forEach(([key, one, many]) => {
         const n = ninja.owed[key + "_remaining"];
-        if (n) owed.push(el("div", { class: "profile-line" }, [el("b", { text: String(n) }), document.createTextNode(" " + (n === 1 ? one : many))]));
+        const printed = key === "certificates" && ninja.owed.certificates_printed ? ` (${ninja.owed.certificates_printed} printed, ready to hand out)` : "";
+        if (n) owed.push(el("div", { class: "profile-line" }, [el("b", { text: String(n) }), document.createTextNode(" " + (n === 1 ? one : many) + printed)]));
       });
   } else {
     owed.push(el("div", { class: "muted", text: ninja.levels ? "All caught up." : "No belt-ups yet." }));
@@ -1321,7 +1322,6 @@ document.getElementById("rosterSubmit").addEventListener("click", async () => {
 // ---- JR Ninjas: everyone in a JR class, and notes on what each one is working on ----
 // Notes are shared with the whole team like everything else, newest first.
 
-const JR_NOTES_SHOWN = 3;
 const JR_AUTHOR_KEY = "ninja.jrAuthor";
 const jrKey = (name) => personKey(name).replace(/\s+/g, " ");
 const jrExpanded = new Set(); // cards showing every note, not just the latest few
@@ -1428,7 +1428,7 @@ function jrChecklist(person, refresh) {
   const box = el("details", { class: "jr-checklist" });
   if (jrSkillsOpen.has(key)) box.setAttribute("open", "");
   box.addEventListener("toggle", () => { if (box.open) jrSkillsOpen.add(key); else jrSkillsOpen.delete(key); });
-  box.appendChild(el("summary", { text: `Skills checklist (${fromNotes} from notes, ${bySensei} set by a sensei)` }));
+  box.appendChild(el("summary", { text: `Skills checklist`, title: `${fromNotes} suggested from notes, ${bySensei} set by a sensei` }));
   const error = el("div", { class: "banner" });
   let area = null;
   person.skills.forEach((item) => {
@@ -1468,31 +1468,127 @@ function jrChecklist(person, refresh) {
   return box;
 }
 
-// One JR Ninja: belt, classes, skills, a box to add a note, then the notes (latest few, or all).
-function jrCard(person, refresh) {
+// ---- Priority: who needs a sensei's attention first ----
+// "attention" = at least one skill marked Needs work; "stale" = no note yet, or none in JR_STALE_DAYS;
+// "ok" = everything else. The JR view lists them in that order.
+
+const JR_STALE_DAYS = 21;
+const JR_PRIORITY = {
+  attention: { rank: 0, label: "Needs work", chip: "Needs work" },
+  stale: { rank: 1, label: "Needs a note", chip: "Needs a note" },
+  ok: { rank: 2, label: "On track", chip: "On track" },
+};
+let jrFilter = "all"; // "all" | a JR_PRIORITY key
+const jrAdding = new Set(); // cards with the "add note" box open
+
+function daysSinceNote(createdAt) {
+  const raw = String(createdAt || "");
+  if (!raw) return null;
+  const d = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(raw) ? raw : raw.replace(" ", "T") + "Z");
+  return isNaN(d) ? null : Math.max(0, Math.floor((Date.now() - d.getTime()) / 86400000));
+}
+
+function jrPriority(person) {
+  const needs = person.summary ? person.summary.needs_work.length : 0;
+  const days = person.notes.length ? daysSinceNote(person.notes[0].created_at) : null;
+  const level = needs ? "attention" : (days === null || days >= JR_STALE_DAYS) ? "stale" : "ok";
+  let reason;
+  if (level === "attention") reason = `Needs work on ${needs} skill${needs === 1 ? "" : "s"}`;
+  else if (days === null) reason = "No notes yet";
+  else if (level === "stale") reason = `No note for ${days} days`;
+  else reason = "On track";
+  return { level, needs, days, reason };
+}
+
+const jrPriorityOrder = (a, b) =>
+  JR_PRIORITY[a.priority.level].rank - JR_PRIORITY[b.priority.level].rank ||
+  b.priority.needs - a.priority.needs ||
+  (b.priority.days === null ? Infinity : b.priority.days) - (a.priority.days === null ? Infinity : a.priority.days) ||
+  a.name.localeCompare(b.name);
+
+const lastNoteText = (days) => days === null ? "never" : days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+
+// One JR Ninja. Top to bottom, most important first: why they are (or aren't) a priority,
+// what to focus on next, the latest note, then the add-note box, older notes and the full checklist.
+function jrCard(person, refresh, opts = {}) {
   const key = jrKey(person.name);
-  const card = el("div", { class: "jr-card", "data-person": key });
+  const priority = person.priority || jrPriority(person);
+  const card = el("div", { class: `jr-card prio-${priority.level}`, "data-person": key });
 
   const head = el("div", { class: "jr-card-head" });
-  head.appendChild(el("span", { class: "person-name", text: person.name }));
-  head.appendChild(el("span", { class: "jr-belt" + (person.belt ? "" : " belt-unknown"), text: person.belt ? `${person.belt} belt` : "No belt yet" }));
+  head.appendChild(el("div", { class: "jr-card-title" }, [
+    ninjaLink(person.name, person.uid),
+    el("span", { class: "jr-belt" + (person.belt ? "" : " belt-unknown"), text: person.belt ? `${person.belt} belt` : "No belt yet" }),
+  ]));
+  head.appendChild(el("span", { class: `jr-prio-badge ${priority.level}`, text: priority.reason }));
   card.appendChild(head);
-  const sessions = el("div", { class: "sessions-cell" });
+  const sessions = el("div", { class: "sessions-cell jr-sessions" });
   sortSessions(person.sessions).forEach((r) => sessions.appendChild(sessionPill(r)));
   card.appendChild(sessions);
-  if (person.skills) {
-    card.appendChild(jrSkillSummary(person.summary, "Nothing on the skills checklist yet: write a note, or set skills below."));
-    card.appendChild(jrChecklist(person, refresh));
+
+  // Focus: Needs work first (the priority), then Working on; Got it is just a count with the names on hover.
+  if (person.summary) {
+    const s = person.summary;
+    const focus = el("div", { class: "jr-focus" });
+    const row = (status, label, items) => {
+      if (!items.length) return;
+      const line = el("div", { class: `jr-focus-row ${status}` }, [el("span", { class: "jr-focus-label", text: label })]);
+      const chips = el("div", { class: "jr-focus-chips" });
+      items.forEach((name) => chips.appendChild(el("span", { class: "jr-chip " + status, text: name })));
+      line.appendChild(chips);
+      focus.appendChild(line);
+    };
+    row("needs_work", "Needs work", s.needs_work);
+    row("working", "Working on", s.working);
+    if (s.done.length) {
+      focus.appendChild(el("div", { class: "jr-focus-done", title: s.done.join(", "),
+        text: `✓ Got it: ${s.done.length} skill${s.done.length === 1 ? "" : "s"}` }));
+    }
+    if (!focus.childNodes.length) {
+      focus.appendChild(el("div", { class: "muted", text: "No skills yet: add a note, or set them in the checklist below." }));
+    }
+    card.appendChild(focus);
   }
 
+  // Latest note, then the rest behind a button.
+  const list = el("div", { class: "jr-notes" });
+  if (!person.notes.length) list.appendChild(el("div", { class: "muted jr-no-notes", text: "No notes yet." }));
+  const showAll = jrExpanded.has(key);
+  (showAll ? person.notes : person.notes.slice(0, 1)).forEach((n, i) => list.appendChild(jrNoteItem(n, i === 0, refresh)));
+  if (person.notes.length > 1) {
+    const more = el("button", {
+      class: "link-btn", type: "button",
+      text: showAll ? "Show only the latest note" : `Show ${person.notes.length - 1} older note${person.notes.length === 2 ? "" : "s"}`,
+    });
+    more.addEventListener("click", async () => {
+      if (jrExpanded.has(key)) jrExpanded.delete(key); else jrExpanded.add(key);
+      await refresh();
+    });
+    list.appendChild(more);
+  }
+  card.appendChild(list);
+
+  // Add a note: one button until it's needed (always open in the JR notes window).
   const draft = el("textarea", {
-    class: "jr-draft jr-new", rows: "2", "data-draft": "1",
-    placeholder: "What are they working on? (Ctrl+Enter to save)",
+    class: "jr-draft jr-new", rows: "3", "data-draft": "1",
+    placeholder: "What did they work on today? What's next? (Ctrl+Enter to save)",
   });
   const author = el("input", { type: "text", class: "jr-author", placeholder: "Your name", title: "Who wrote this note" });
   author.value = jrAuthor();
-  const addBtn = el("button", { class: "btn-primary", type: "button", text: "Add note" });
+  const addBtn = el("button", { class: "btn-primary", type: "button", text: "Save note" });
+  const cancelBtn = el("button", { class: "btn-secondary", type: "button", text: "Cancel" });
   const error = el("div", { class: "banner" });
+  const addBox = el("div", { class: "jr-add" }, [draft, el("div", { class: "jr-add-row" }, [author, cancelBtn, addBtn]), error]);
+  const openBtn = el("button", { class: "btn-secondary jr-open-add", type: "button", text: "+ Add note" });
+  const setOpen = (open) => {
+    addBox.style.display = open ? "" : "none";
+    openBtn.style.display = open ? "none" : "";
+    cancelBtn.style.display = opts.alwaysOpen ? "none" : "";
+    if (open) jrAdding.add(key); else jrAdding.delete(key);
+  };
+  setOpen(opts.alwaysOpen || jrAdding.has(key));
+  openBtn.addEventListener("click", () => { setOpen(true); draft.focus(); });
+  cancelBtn.addEventListener("click", () => { draft.value = ""; setOpen(false); });
   addBtn.addEventListener("click", async () => {
     const note = draft.value.trim();
     if (!note) { draft.focus(); return; }
@@ -1501,6 +1597,7 @@ function jrCard(person, refresh) {
       await api("/api/jr-notes", { method: "POST", body: JSON.stringify({ name: person.name, note, author: author.value.trim() }) });
       rememberJrAuthor(author.value.trim());
       draft.value = "";
+      if (!opts.alwaysOpen) jrAdding.delete(key);
       await refresh();
     } catch (e) {
       inlineError(error, e.message);
@@ -1510,34 +1607,23 @@ function jrCard(person, refresh) {
   draft.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addBtn.click();
   });
-  card.appendChild(el("div", { class: "jr-add" }, [draft, el("div", { class: "jr-add-row" }, [author, addBtn]), error]));
 
-  const list = el("div", { class: "jr-notes" });
-  if (!person.notes.length) list.appendChild(el("div", { class: "muted", text: "No notes yet." }));
-  const shown = jrExpanded.has(key) ? person.notes : person.notes.slice(0, JR_NOTES_SHOWN);
-  shown.forEach((n, i) => list.appendChild(jrNoteItem(n, i === 0, refresh)));
-  if (person.notes.length > JR_NOTES_SHOWN) {
-    const more = el("button", {
-      class: "link-btn", type: "button",
-      text: jrExpanded.has(key) ? "Show only the latest" : `Show all ${person.notes.length} notes`,
-    });
-    more.addEventListener("click", async () => {
-      if (jrExpanded.has(key)) jrExpanded.delete(key); else jrExpanded.add(key);
-      await refresh();
-    });
-    list.appendChild(more);
-  }
-  card.appendChild(list);
+  const foot = el("div", { class: "jr-card-foot" });
+  if (person.skills) foot.appendChild(jrChecklist(person, refresh));
+  foot.appendChild(openBtn);
+  card.appendChild(addBox);
+  card.appendChild(foot);
   return card;
 }
 
-// Unsent "add note" text survives a redraw.
+// Unsent "add note" text survives a redraw (and keeps its box open).
 function keepJrDrafts(container, draw) {
   const drafts = {};
   container.querySelectorAll(".jr-card").forEach((card) => {
     const box = card.querySelector("textarea.jr-new");
     if (box && box.value) drafts[card.dataset.person] = box.value;
   });
+  Object.keys(drafts).forEach((k) => jrAdding.add(k));
   draw();
   container.querySelectorAll(".jr-card").forEach((card) => {
     const box = card.querySelector("textarea.jr-new");
@@ -1554,9 +1640,15 @@ async function loadJrView() {
     container.textContent = error.message;
     return;
   }
+  people.forEach((p) => { p.priority = jrPriority(p); });
+  people.sort(jrPriorityOrder);
   const search = jrKey(document.getElementById("activeSearch").value);
-  const shown = !search || search === "jr" ? people : people.filter((p) =>
+  const matching = !search || search === "jr" ? people : people.filter((p) =>
     jrKey(p.name).includes(search) || p.sessions.some((s) => jrKey(`${s.day} ${s.time_slot}`).includes(search)));
+  const counts = { all: matching.length };
+  Object.keys(JR_PRIORITY).forEach((level) => { counts[level] = matching.filter((p) => p.priority.level === level).length; });
+  if (jrFilter !== "all" && !counts[jrFilter]) jrFilter = "all";
+  const shown = jrFilter === "all" ? matching : matching.filter((p) => p.priority.level === jrFilter);
 
   keepJrDrafts(container, () => {
     container.innerHTML = "";
@@ -1568,14 +1660,39 @@ async function loadJrView() {
       }));
       return;
     }
-    const notes = people.reduce((n, p) => n + p.notes.length, 0);
+
+    // Filter chips double as the overview: how many need what.
+    const bar = el("div", { class: "jr-toolbar" });
+    const chip = (level, label) => {
+      const b = el("button", {
+        type: "button", class: `jr-filter ${level}` + (jrFilter === level ? " active" : ""),
+        title: level === "stale" ? `No note yet, or none in the last ${JR_STALE_DAYS} days` : "",
+      }, [el("span", { text: label }), el("b", { text: String(counts[level]) })]);
+      b.addEventListener("click", () => { jrFilter = level; loadJrView(); });
+      bar.appendChild(b);
+    };
+    chip("all", "All JR Ninjas");
+    Object.entries(JR_PRIORITY).forEach(([level, p]) => chip(level, p.chip));
+    container.appendChild(bar);
     container.appendChild(el("div", {
       class: "jr-summary muted",
-      text: `${people.length} JR Ninja${people.length === 1 ? "" : "s"}` +
-        (shown.length !== people.length ? ` (${shown.length} match the search)` : "") +
-        ` · ${notes} note${notes === 1 ? "" : "s"}. Notes are shared with every sensei.`,
+      text: "Most urgent first: Needs work, then Ninjas with no recent note, then everyone on track." +
+        (search && search !== "jr" ? ` ${matching.length} of ${people.length} match the search.` : "") +
+        " Notes are shared with every sensei.",
     }));
-    shown.forEach((p) => container.appendChild(jrCard(p, loadJrView)));
+
+    if (!shown.length) {
+      container.appendChild(el("div", { class: "jr-summary muted", text: "No JR Ninjas match." }));
+      return;
+    }
+    let level = null;
+    shown.forEach((p) => {
+      if (jrFilter === "all" && p.priority.level !== level) {
+        level = p.priority.level;
+        container.appendChild(el("h3", { class: `jr-group-head ${level}`, text: `${JR_PRIORITY[level].label} (${counts[level]})` }));
+      }
+      container.appendChild(jrCard(p, loadJrView));
+    });
   });
 }
 
@@ -1589,7 +1706,7 @@ async function openJrNotes(name) {
     const person = people.find((p) => jrKey(p.name) === jrKey(name)) || { name, belt: "", sessions: [], notes: [] };
     keepJrDrafts(body, () => {
       body.innerHTML = "";
-      body.appendChild(jrCard(person, draw));
+      body.appendChild(jrCard(person, draw, { alwaysOpen: true }));
     });
   };
   await draw();
@@ -2437,6 +2554,8 @@ document.getElementById("beltModalSubmit").addEventListener("click", async () =>
   }
 });
 
+const PRINTED_NOTE = "They are marked as printed; press \u2713 Given on Rewards owed once each one is handed out.";
+
 // ---- Print certificates for one belt entry ----
 // Same rule as getOutstandingCertificates: one certificate per belt completed,
 // so Yellow -> Green covers Yellow and Orange.
@@ -2491,21 +2610,6 @@ function openBeltCertModal(row) {
   return openCertPicker(row.name, certificateBeltsForEntry(row), { bannerId: "beltsImportBanner" });
 }
 
-// Every belt a Ninja has completed (and so has a certificate for), across all their belt entries,
-// plus their name as written on the Belt-ups list (what goes on the certificate).
-async function completedBeltsForNinja(name) {
-  const entries = (await api("/api/belts"))
-    .filter((row) => personKey(row.name) === personKey(name))
-    .reverse(); // oldest first
-  const belts = [];
-  entries.forEach((row) => certificateBeltsForEntry(row).forEach((belt) => {
-    if (!belts.includes(belt)) belts.push(belt);
-  }));
-  const order = (settings.belt_options || []).map((b) => formatBeltName(normalizeBelt(b)));
-  belts.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-  return { name: entries.length ? entries[0].name.trim() : name, belts };
-}
-
 document.getElementById("beltCertCancel").addEventListener("click", () => {
   document.getElementById("beltCertModalOverlay").classList.remove("open");
 });
@@ -2524,7 +2628,7 @@ document.getElementById("beltCertSubmit").addEventListener("click", async () => 
       body: JSON.stringify({ name: beltCertRow.name, belts }),
     });
     document.getElementById("beltCertModalOverlay").classList.remove("open");
-    showBanner(beltCertRow.bannerId, `Generated ${result.count} certificate(s) for ${beltCertRow.name}. Downloading...`, "success");
+    showBanner(beltCertRow.bannerId, `Generated ${result.count} certificate(s) for ${beltCertRow.name}. Downloading... ` + PRINTED_NOTE, "success");
     openDownload(result);
     if (beltCertRow.onDone) beltCertRow.onDone();
   } catch (error) {
@@ -2571,8 +2675,6 @@ document.getElementById("bulkBeltSubmit").addEventListener("click", async () => 
 
 const REWARD_COLUMNS = [
   ["ninja_bucks_remaining", "ninja_bucks"],
-  ["large_coins_remaining", "large_coins"],
-  ["small_coins_remaining", "small_coins"],
   ["prints_remaining", "prints"],
   ["certificates_remaining", "certificates"],
   ["belts_remaining", "belts"],
@@ -2580,8 +2682,6 @@ const REWARD_COLUMNS = [
 
 const OVERALL_LABELS = {
   ninja_bucks: "Ninja Bucks",
-  large_coins: "Large Coins ($10)",
-  small_coins: "Small Coins ($1)",
   prints: "3D Prints",
   certificates: "Certificates",
   belts: "New Belts",
@@ -2600,12 +2700,14 @@ function fillRewardsDays(days) {
 async function loadRewards() {
   hideBanner("rewardsBanner");
   const picked = document.getElementById("rewardsDay").value;
-  const [summary, byDay] = await Promise.all([
+  const [summary, byDay, printed] = await Promise.all([
     api("/api/rewards/summary"),
     api(`/api/rewards/by-day${picked ? `?day=${encodeURIComponent(picked)}` : ""}`),
+    api("/api/certificates/printed"),
   ]);
   fillRewardsDays(byDay.days);
   const day = document.getElementById("rewardsDay").value ? byDay : null;
+  renderPrintedCertificates(printed, day);
 
   const totalsContainer = document.getElementById("rewardsTotals");
   totalsContainer.innerHTML = "";
@@ -2627,9 +2729,8 @@ async function loadRewards() {
     const card = el("div", { class: "totals-card" });
     card.appendChild(el("div", { class: "totals-card-label", text: OVERALL_LABELS[field] }));
     card.appendChild(el("div", { class: "totals-card-value", text: String(data.remaining) }));
-    // Coins are just how the owed Ninja Bucks get paid, so given/earned doesn't apply to them.
-    const isCoin = field === "large_coins" || field === "small_coins";
-    const sub = isCoin ? "to pay Ninja Bucks owed" : `${data.given} given / ${data.earned} earned`;
+    let sub = `${data.given} given / ${data.earned} earned`;
+    if (field === "certificates" && data.printed) sub = `${data.printed} printed, not handed out · ` + sub;
     card.appendChild(el("div", { class: "totals-card-sub", text: sub }));
     totalsContainer.appendChild(card);
   });
@@ -2646,9 +2747,9 @@ function renderDayRewards(day, totalsContainer, caughtUp) {
   ]);
   totalsContainer.appendChild(card(`${day.day} Ninjas owed`, day.owed_count, `of ${day.attending} who come in`));
   Object.keys(OVERALL_LABELS).forEach((field) => {
-    const isCoin = field === "large_coins" || field === "small_coins";
+    const printed = field === "certificates" && day.totals.certificates_printed;
     totalsContainer.appendChild(card(OVERALL_LABELS[field], day.totals[field],
-      isCoin ? `to pay ${day.day} Ninja Bucks owed` : `owed on ${day.day}`));
+      printed ? `owed on ${day.day} · ${printed} printed` : `owed on ${day.day}`));
   });
 
   const nothingOwed = day.ninjas.filter((n) => !n.owed).map((n) => n.name);
@@ -2684,21 +2785,54 @@ function renderRewardRows(allRows, nothingText) {
     tr.appendChild(nameCell);
     tr.appendChild(el("td", { text: row.progression }));
     REWARD_COLUMNS.forEach(([key]) => {
-      tr.appendChild(el("td", { text: String(row[key]) }));
+      const td = el("td", { class: row[key] ? "" : "zero", text: String(row[key]) });
+      if (key === "certificates_remaining" && row.certificates_printed) {
+        td.appendChild(el("div", { class: "cert-printed-note", text: `${row.certificates_printed} printed` }));
+      }
+      tr.appendChild(td);
     });
 
     const actionsCell = el("td");
     const giveBtn = el("button", { class: "btn-icon", title: `Give rewards to ${row.name}`, text: "🎁" });
     giveBtn.addEventListener("click", () => openGiveRewards(row.name, row));
     actionsCell.appendChild(giveBtn);
-    if (row.certificates_remaining > 0) {
-      const certBtn = el("button", { class: "btn-icon", title: "Generate certificate(s)", text: "\ud83c\udf93" });
+    if (row.certificates_remaining > row.certificates_printed) {
+      const certBtn = el("button", { class: "btn-icon", title: "Print certificate(s)", text: "\ud83c\udf93" });
       certBtn.addEventListener("click", () => generateCertificateForRow(row));
       actionsCell.appendChild(certBtn);
     }
     tr.appendChild(actionsCell);
 
     tbody.appendChild(tr);
+  });
+}
+
+// Certificates printed but not handed out yet (only that day's Ninjas when a day is picked).
+function renderPrintedCertificates(printed, day) {
+  const box = document.getElementById("certReady");
+  const list = document.getElementById("certReadyList");
+  const names = day ? new Set(day.rows.map((r) => personKey(r.name))) : null;
+  const shown = names ? printed.filter((c) => names.has(personKey(c.name))) : printed;
+  box.style.display = shown.length ? "" : "none";
+  document.getElementById("certReadyCount").textContent = String(shown.length);
+  list.innerHTML = "";
+  shown.forEach((c) => {
+    const btn = el("button", { class: "btn-secondary btn-small", type: "button", title: `Mark ${c.belt} certificate as handed out to ${c.name}`, text: "\u2713 Given" });
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      try {
+        await api("/api/certificates/given", { method: "POST", body: JSON.stringify({ items: [{ name: c.name, belt: c.belt }] }) });
+        showBanner("rewardsBanner", `${c.belt} Belt certificate marked as given to ${c.name}.`, "success");
+        loadRewards();
+      } catch (error) {
+        showBanner("rewardsBanner", error.message, "error");
+        btn.disabled = false;
+      }
+    });
+    list.appendChild(el("div", { class: "cert-ready-item" }, [
+      el("div", {}, [ninjaLink(c.name), el("div", { class: "muted", text: `${c.belt} Belt · printed ${c.date}` })]),
+      btn,
+    ]));
   });
 }
 
@@ -2733,7 +2867,7 @@ async function generateCertificateForRow(row) {
       body: JSON.stringify({ name: row.name, belts }),
     });
 
-    showBanner("rewardsBanner", `Generated ${result.count} certificate(s) for ${row.name}. Downloading...`, "success");
+    showBanner("rewardsBanner", `Generated ${result.count} certificate(s) for ${row.name}. Downloading... ` + PRINTED_NOTE, "success");
     openDownload(result);
     loadRewards();
   } catch (error) {
@@ -2748,7 +2882,7 @@ document.getElementById("generateAllCertsBtn").addEventListener("click", async (
       method: "POST",
       body: JSON.stringify({ generate_all: true }),
     });
-    showBanner("rewardsBanner", `Generated ${result.count} certificate(s). Downloading...`, "success");
+    showBanner("rewardsBanner", `Generated ${result.count} certificate(s). Downloading... ` + PRINTED_NOTE, "success");
     openDownload(result);
     loadRewards();
   } catch (error) {
@@ -2758,7 +2892,7 @@ document.getElementById("generateAllCertsBtn").addEventListener("click", async (
 
 // ---- Give Rewards modal ----
 
-const GIVE_FIELDS = ["ninja_bucks", "large_coins", "small_coins", "prints", "certificates", "belts"];
+const GIVE_FIELDS = ["ninja_bucks", "prints", "certificates", "belts"];
 
 // name/row are set when opened from a Ninja's row: the name is filled in and what they are
 // still owed is shown under each box.
@@ -2766,7 +2900,8 @@ function openGiveRewards(name, row) {
   document.getElementById("gr_names").value = name || "";
   GIVE_FIELDS.forEach((field) => {
     document.getElementById("gr_" + field).value = "0";
-    document.getElementById("gr_owed_" + field).textContent = row ? `${row[field + "_remaining"]} owed` : "";
+    document.getElementById("gr_owed_" + field).textContent = !row ? "" :
+      `${row[field + "_remaining"]} owed` + (field === "certificates" && row.certificates_printed ? ` (${row.certificates_printed} printed)` : "");
   });
   hideBanner("giveRewardsError");
   document.getElementById("giveRewardsModalOverlay").classList.add("open");
@@ -2791,17 +2926,7 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
   btn.disabled = true;
 
   try {
-    // More certificates than one Ninja is owed: they are reprinting (e.g. a lost certificate),
-    // so record the other rewards and let the person pick which certificates to print.
-    if (names.length === 1 && Number.isInteger(payload.certificates) && payload.certificates > 0) {
-      const summary = await api("/api/rewards/summary");
-      const owedRow = summary.rows.find((r) => personKey(r.name) === personKey(names[0]));
-      const owed = owedRow ? owedRow.certificates_remaining : 0;
-      if (payload.certificates > owed) {
-        await giveWithCertificatePicker(names[0], payload, owed);
-        return;
-      }
-    }
+    // Certificates here are ones handed out; printing (or reprinting a lost one) is the 🎓 button.
     await api("/api/rewards/give", { method: "POST", body: JSON.stringify(payload) });
     document.getElementById("giveRewardsModalOverlay").classList.remove("open");
     loadRewards();
@@ -2811,29 +2936,6 @@ document.getElementById("giveRewardsSubmit").addEventListener("click", async () 
     btn.disabled = false;
   }
 });
-
-async function giveWithCertificatePicker(typedName, payload, owed) {
-  const { name, belts } = await completedBeltsForNinja(typedName);
-  if (!belts.length) {
-    throw new Error(`${typedName} has not completed any belts yet, so there are no certificates to print.`);
-  }
-
-  const others = { ...payload, names: [name], certificates: 0 };
-  const hasOthers = GIVE_FIELDS.some((field) => others[field] !== 0);
-  if (hasOthers) await api("/api/rewards/give", { method: "POST", body: JSON.stringify(others) });
-
-  document.getElementById("giveRewardsModalOverlay").classList.remove("open");
-  await loadRewards();
-
-  const owedText = owed === 1 ? "only 1 is owed" : `only ${owed} are owed`;
-  await openCertPicker(name, belts, {
-    bannerId: "rewardsBanner",
-    intro: `You entered ${payload.certificates} certificates but ${owedText}. ` +
-      "Tick the ones to print - certificates already printed can be printed again." +
-      (hasOthers ? " The other rewards have been recorded." : ""),
-    onDone: loadRewards,
-  });
-}
 
 // ================================================================
 // REWARD HISTORY
@@ -2877,7 +2979,7 @@ async function loadHistory() {
 document.getElementById("clearCertificatesBtn").addEventListener("click", async () => {
   const ok = await confirmDialog(
     "Remove All Certificates",
-    "Remove every Certificate transaction from Reward History? All certificates will show as owed again. This cannot be undone."
+    "Remove every certificate record (printed and given) from Reward History? All certificates will show as owed and not printed again. This cannot be undone."
   );
   if (!ok) return;
   try {
