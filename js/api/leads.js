@@ -196,11 +196,33 @@ export function sameParent(fromName, parentName) {
   return b.length > 1 && a[0] === b[0] && a.slice(1).includes(b[b.length - 1]);
 }
 
-// New messages, newest first, each with the leads of the family it came from (matched by parent name).
+/**
+ * The lead's name as the CRM email gives it: "You have a new inbound text in CRM from <name>!",
+ * else the From: under "Text Information". Read from the saved email itself, so messages saved
+ * with the automated sender's name in from_name still show (and match) the right lead.
+ * Falls back to from_name.
+ */
+export function messageLeadName(m) {
+  const text = String(m.original || "").replace(/\r\n?/g, "\n");
+  const intro = text.match(/new inbound text in CRM from\s+([^!\n]+?)\s*!/i);
+  if (intro) return intro[1].trim();
+  const info = text.search(/^\s*Text Information\s*$/im);
+  if (info >= 0) {
+    const from = text.slice(info).match(/^\s*From\s*:\s*(.+)$/im);
+    if (from && from[1].trim()) return from[1].trim();
+  }
+  return String(m.from_name || "").trim();
+}
+
+// New messages, newest first: lead_name (the lead the CRM says it's from, the card's headline) and
+// the leads with that parent name.
 route("GET", "/api/lead-messages", () => {
   const leads = conn.all("SELECT id, entry_number, ninja_name, parent_name, gbs_date, gbs_time FROM leads WHERE parent_name IS NOT NULL AND parent_name <> ''");
   return conn.all("SELECT id, from_name, received, body, reply_link, original, created_at FROM lead_messages WHERE status = 'new' ORDER BY id DESC")
-    .map((m) => ({ ...m, leads: leads.filter((l) => sameParent(m.from_name, l.parent_name)).sort((x, y) => y.id - x.id) }));
+    .map((m) => {
+      const lead_name = messageLeadName(m);
+      return { ...m, lead_name, leads: leads.filter((l) => sameParent(lead_name, l.parent_name)).sort((x, y) => y.id - x.id) };
+    });
 });
 
 // Someone has dealt with the message: it leaves the list (it is kept).

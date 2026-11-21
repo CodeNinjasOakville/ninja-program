@@ -235,6 +235,14 @@ conn.run(`INSERT INTO lead_messages (from_name, received, body, reply_link, orig
 let messages = await handleRequest("GET", "/api/lead-messages");
 check("new messages listed newest first, each with the family's lead", messages.length === 2 && messages[0].from_name === "Unknown Person"
   && messages[0].leads.length === 0 && messages[1].leads.map((l) => l.ninja_name).join() === "Blake Fox" && messages[1].body === "Yes", messages);
+check("each message's lead name comes back for the card", messages[1].lead_name === "Jamie Tsui-Fox" && messages[0].lead_name === "Unknown Person", messages);
+// Saved by the old reader with the automated sender as from_name: the lead's name is read from the email itself.
+conn.run(`INSERT INTO lead_messages (from_name, body, original, email_message_id) VALUES ('CRM Notifications <notifications@crm.example.com>', 'Ok',
+  'From: CRM Notifications <notifications@crm.example.com>\nDear Robin Staff,\nYou have a new inbound text in CRM from Jamie Fox! For your convenience, the message is below.\nText Information\nFrom: Jamie Fox\nMessage Body\nOk', '<txt-3>')`);
+const fixedName = (await handleRequest("GET", "/api/lead-messages")).find((m) => m.body === "Ok");
+check("wrongly saved name: lead name read from the email, and the family's lead found",
+  fixedName.lead_name === "Jamie Fox" && fixedName.leads.map((l) => l.ninja_name).join() === "Blake Fox", fixedName);
+conn.run("UPDATE lead_messages SET status = '' WHERE email_message_id = '<txt-3>'");
 await handleRequest("POST", `/api/lead-messages/${messages[1].id}/done`);
 messages = await handleRequest("GET", "/api/lead-messages");
 check("done: off the list, still kept", messages.length === 1 && conn.get("SELECT status FROM lead_messages WHERE email_message_id = '<txt-1>'").status === "");

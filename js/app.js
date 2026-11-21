@@ -2163,9 +2163,9 @@ async function renderLeadMessages(leadsById, search) {
   } catch (error) {
     messages = []; // an older saved copy of the app without this route: just no list
   }
-  // The search box applies here too: sender, message, or the child on a matching lead.
+  // The search box applies here too: the lead's name, the message, or the child on a matching lead.
   const q = String(search || "").trim().toLowerCase();
-  if (q) messages = messages.filter((m) => [m.from_name, m.body, ...m.leads.map((l) => l.ninja_name)].join(" ").toLowerCase().includes(q));
+  if (q) messages = messages.filter((m) => [m.lead_name || m.from_name, m.body, ...m.leads.map((l) => l.ninja_name)].join(" ").toLowerCase().includes(q));
   setLeadsCount("messages", messages.length, true);
   box.innerHTML = "";
   if (!messages.length) {
@@ -2185,12 +2185,8 @@ async function renderLeadMessages(leadsById, search) {
         el("span", { class: "muted", text: m.received ? `received ${m.received}` : "" }),
       ]),
     ]));
-    // Headline: the lead(s) it's about (the child), so each message reads as that family's;
-    // the parent who texted underneath. No matching lead: the parent's name is all there is.
-    const leadNames = [...new Set(m.leads.map((l) => l.ninja_name).filter((n) => n && n !== NO_CHILD_NAME))];
-    const who = el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name", text: leadNames.join(" & ") || m.from_name })]);
-    card.appendChild(who);
-    if (leadNames.length) card.appendChild(el("div", { class: "gbs-parent-name", text: `Text from ${m.from_name}` }));
+    // Headline: the lead's name from the CRM email ("...new inbound text in CRM from <lead>!").
+    card.appendChild(el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name", text: m.lead_name || m.from_name || "Name not found" })]));
     card.appendChild(el("div", { class: "gbs-message-body", text: m.body || "(no message text)" }));
 
     // Which lead(s) it is about
