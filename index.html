@@ -67,13 +67,21 @@
         <input type="file" id="importLeadsFile" accept=".csv" style="display:none;">
       </div>
       <div class="banner" id="leadsImportBanner"></div>
-      <!-- Text messages from families (CRM "new inbound text" emails) nobody has marked done yet. -->
-      <div id="leadMessages" class="gbs-upcoming gbs-messages" style="display:none;"></div>
+      <!-- The parts of Leads, one at a time (opens on Upcoming GBS). Counts are filled in by loadLeads(). -->
+      <div class="subtabs leads-subtabs" id="leadsSubtabs">
+        <button class="subtab-btn active" data-leads-view="upcoming">Upcoming GBS <span class="subtab-count"></span></button>
+        <button class="subtab-btn" data-leads-view="inquiries">New inquiries <span class="subtab-count"></span></button>
+        <button class="subtab-btn" data-leads-view="messages">Messages <span class="subtab-count"></span></button>
+        <button class="subtab-btn" data-leads-view="table">Past &amp; other leads <span class="subtab-count"></span></button>
+      </div>
+      <!-- Upcoming GBS as cards, soonest first. -->
+      <div id="upcomingLeads" class="gbs-upcoming"></div>
       <!-- Leads added from CRM inquiry emails that nobody has checked yet. -->
       <div id="inquiryLeads" class="gbs-upcoming gbs-inquiries" style="display:none;"></div>
-      <!-- Upcoming GBS as cards (soonest first); past and undated leads stay in the table below. -->
-      <div id="upcomingLeads" class="gbs-upcoming" style="display:none;"></div>
-      <div class="table-wrap" id="leadsTableWrap">
+      <!-- Text messages from families (CRM "new inbound text" emails) nobody has marked done yet. -->
+      <div id="leadMessages" class="gbs-upcoming gbs-messages" style="display:none;"></div>
+      <!-- Past and undated leads (and the Show Duplicates view). -->
+      <div class="table-wrap" id="leadsTableWrap" style="display:none;">
         <table id="leadsTable">
           <thead>
             <tr>

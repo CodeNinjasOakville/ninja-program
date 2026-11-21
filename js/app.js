@@ -314,6 +314,9 @@ document.getElementById("tagBeltsClose").addEventListener("click", () => {
 
 const PAGE_PANELS = { ninjas: ["active"], rewards: ["rewards", "belts", "history", "prints"], leads: ["leads"], settings: ["settings", "security"] };
 let rewardsPart = "rewards"; // which part of Belts & Rewards is showing
+// The parts of Leads (tabs inside the page) and the element each one shows; see applyLeadsView.
+const LEADS_VIEWS = { upcoming: "upcomingLeads", inquiries: "inquiryLeads", messages: "leadMessages", table: "leadsTableWrap" };
+let leadsView = "upcoming";
 
 function loadPanel(panel) {
   // Leads and Belts change when the roster does (enrolled badges, renamed Ninjas), so they reload too.
@@ -333,17 +336,19 @@ function showPanels(panels) {
 function showPage(page) {
   document.querySelectorAll(".tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.group === page));
   document.getElementById("rewardsSubtabs").style.display = page === "rewards" ? "flex" : "none";
+  // Leads always opens on Upcoming GBS.
+  if (page === "leads") { leadsView = "upcoming"; leadsDuplicatesOnly = false; applyLeadsView(); }
   showPanels(page === "rewards" ? [rewardsPart] : PAGE_PANELS[page]);
 }
 
 function showRewardsPart(part) {
   rewardsPart = part;
-  document.querySelectorAll(".subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.panel === part));
+  document.querySelectorAll("#rewardsSubtabs .subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.panel === part));
   showPage("rewards");
 }
 
 document.querySelectorAll(".tab-btn").forEach((btn) => btn.addEventListener("click", () => showPage(btn.dataset.group)));
-document.querySelectorAll(".subtab-btn").forEach((btn) => btn.addEventListener("click", () => showRewardsPart(btn.dataset.panel)));
+document.querySelectorAll("#rewardsSubtabs .subtab-btn").forEach((btn) => btn.addEventListener("click", () => showRewardsPart(btn.dataset.panel)));
 
 // Drop-down menus ("Print", "More"): close after picking something, or when clicking elsewhere.
 document.addEventListener("click", (e) => {
@@ -2116,11 +2121,13 @@ function upcomingLeadCard(row, flags, inquiry = false) {
   return card;
 }
 
-function renderUpcomingLeads(rows, flags) {
+function renderUpcomingLeads(rows, flags, emptyText) {
   const box = document.getElementById("upcomingLeads");
   box.innerHTML = "";
-  box.style.display = rows.length ? "" : "none";
-  if (!rows.length) return;
+  if (!rows.length) {
+    box.appendChild(el("div", { class: "empty-state", text: emptyText }));
+    return;
+  }
   const week = rows.filter((r) => gbsDayLabel(r.gbs_day).days < 7).length;
   box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
     el("h3", { text: `Upcoming GBS (${rows.length})` }),
@@ -2146,7 +2153,7 @@ function renderUpcomingLeads(rows, flags) {
 
 // Text messages from families (CRM "new inbound text" emails) that nobody has marked done, newest first.
 // Each shows the lead(s) of the parent it came from (matched by name), so staff see who it's about.
-async function renderLeadMessages(leadsById) {
+async function renderLeadMessages(leadsById, search) {
   const box = document.getElementById("leadMessages");
   let messages = [];
   try {
@@ -2154,9 +2161,15 @@ async function renderLeadMessages(leadsById) {
   } catch (error) {
     messages = []; // an older saved copy of the app without this route: just no list
   }
+  // The search box applies here too: sender, message, or the child on a matching lead.
+  const q = String(search || "").trim().toLowerCase();
+  if (q) messages = messages.filter((m) => [m.from_name, m.body, ...m.leads.map((l) => l.ninja_name)].join(" ").toLowerCase().includes(q));
+  setLeadsCount("messages", messages.length, true);
   box.innerHTML = "";
-  box.style.display = messages.length ? "" : "none";
-  if (!messages.length) return;
+  if (!messages.length) {
+    box.appendChild(el("div", { class: "empty-state", text: q ? "No messages match this search." : "No new messages." }));
+    return;
+  }
   box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
     el("h3", { text: `New messages (${messages.length})` }),
     el("span", { class: "muted", text: "Texts from families, from CRM emails. Reply in the CRM, then press ✓ Done." }),
@@ -2221,11 +2234,13 @@ async function renderLeadMessages(leadsById) {
 }
 
 // Leads that came in from CRM inquiry emails and haven't been checked yet, newest first.
-function renderInquiryLeads(rows, flags) {
+function renderInquiryLeads(rows, flags, emptyText) {
   const box = document.getElementById("inquiryLeads");
   box.innerHTML = "";
-  box.style.display = rows.length ? "" : "none";
-  if (!rows.length) return;
+  if (!rows.length) {
+    box.appendChild(el("div", { class: "empty-state", text: emptyText }));
+    return;
+  }
   box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
     el("h3", { text: `New inquiries to follow up (${rows.length})` }),
     el("span", { class: "muted", text: "Added automatically from CRM emails. Check the details against the original email, " +
@@ -2235,6 +2250,29 @@ function renderInquiryLeads(rows, flags) {
   [...rows].sort((a, b) => b.entry_number - a.entry_number).forEach((row) => grid.appendChild(upcomingLeadCard(row, flags, true)));
   box.appendChild(grid);
 }
+
+// ---- The parts of Leads, shown one at a time: Upcoming GBS (the default), New inquiries,
+// Messages, and Past & other leads (the table, also used by Show Duplicates).
+// (LEADS_VIEWS and leadsView are at the top, next to the pages.)
+function applyLeadsView() {
+  Object.entries(LEADS_VIEWS).forEach(([view, id]) => { document.getElementById(id).style.display = view === leadsView ? "" : "none"; });
+  document.querySelectorAll("#leadsSubtabs .subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.leadsView === leadsView));
+}
+
+/** The number on a Leads tab; "attention" ones (inquiries, messages) are highlighted when not zero. */
+function setLeadsCount(view, count, attention = false) {
+  const btn = document.querySelector(`#leadsSubtabs [data-leads-view="${view}"]`);
+  const badge = btn.querySelector(".subtab-count");
+  badge.textContent = String(count);
+  badge.classList.toggle("attention", attention && count > 0);
+}
+
+document.querySelectorAll("#leadsSubtabs .subtab-btn").forEach((btn) => btn.addEventListener("click", () => {
+  leadsView = btn.dataset.leadsView;
+  // Show Duplicates belongs to the table; leaving the table ends it.
+  if (leadsView !== "table" && leadsDuplicatesOnly) { leadsDuplicatesOnly = false; loadLeads(); }
+  applyLeadsView();
+}));
 
 async function loadLeads() {
   const search = document.getElementById("leadsSearch").value;
@@ -2262,19 +2300,6 @@ async function loadLeads() {
   dupBtn.textContent = leadsDuplicatesOnly ? "Show All Leads" : `Show Duplicates (${dupCount})`;
   dupBtn.classList.toggle("active", leadsDuplicatesOnly);
 
-  if (leadsDuplicatesOnly) {
-    // Only the duplicates, with each matching group listed together.
-    const groupKey = (r) => (isDupPhone(r) ? "p" + leadPhoneKey(r.phone_number) : "e" + leadEmailKey(r.email));
-    rows = rows
-      .filter(isDuplicate)
-      .sort((a, b) => groupKey(a).localeCompare(groupKey(b)) || a.entry_number - b.entry_number);
-  }
-
-  document.getElementById("leadsEmpty").style.display = rows.length ? "none" : "block";
-  document.getElementById("leadsEmpty").textContent = leadsDuplicatesOnly
-    ? "No duplicates match this search."
-    : search.trim() ? "No leads match this search." : "No leads yet.";
-
   // Drop selections for rows no longer visible/existing.
   const visibleIds = new Set(rows.map((r) => r.id));
   leadsSelected = new Set([...leadsSelected].filter((id) => visibleIds.has(id)));
@@ -2282,18 +2307,33 @@ async function loadLeads() {
   // Old saved copies of the leads code ignore ?sort=gbs: show the list as-is and offer the update.
   const sortedByGbs = allRows.every((r) => r.gbs_group);
   if (!sortedByGbs) offerLatestVersion("the leads list couldn't be sorted by GBS date");
-  // Upcoming GBS get cards above the table (not in the duplicates view, which needs the table).
-  // New inquiries from CRM emails get their own cards at the very top until someone marks them complete.
-  const showCards = sortedByGbs && !leadsDuplicatesOnly;
-  const inquiries = showCards ? rows.filter((r) => r.inquiry_status === "new") : [];
-  renderLeadMessages(new Map(allRows.map((r) => [r.id, r])));
-  renderInquiryLeads(inquiries, { isDupPhone, isDupEmail });
-  const upcoming = showCards ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day && !inquiries.includes(r)) : [];
-  renderUpcomingLeads(upcoming, { isDupPhone, isDupEmail });
-  const carded = inquiries.length + upcoming.length;
-  if (carded) rows = rows.filter((r) => !upcoming.includes(r) && !inquiries.includes(r));
-  document.getElementById("leadsTableWrap").style.display = carded && !rows.length ? "none" : "";
-  if (carded) document.getElementById("leadsEmpty").style.display = "none";
+  // Each part of Leads gets its own tab (applyLeadsView shows one). New inquiries stay in their tab
+  // until someone marks them complete; upcoming GBS are cards; everything else is the table.
+  const searching = !!search.trim();
+  const flags = { isDupPhone, isDupEmail };
+  const inquiries = sortedByGbs ? rows.filter((r) => r.inquiry_status === "new") : [];
+  const upcoming = sortedByGbs ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day && !inquiries.includes(r)) : [];
+  renderUpcomingLeads(upcoming, flags, searching ? "No upcoming GBS match this search." : "No GBS coming up.");
+  renderInquiryLeads(inquiries, flags, searching ? "No new inquiries match this search." : "No new inquiries to follow up.");
+  renderLeadMessages(new Map(allRows.map((r) => [r.id, r])), search);
+  setLeadsCount("upcoming", upcoming.length);
+  setLeadsCount("inquiries", inquiries.length, true);
+
+  if (leadsDuplicatesOnly) {
+    // Only the duplicates (of every kind), with each matching group listed together.
+    const groupKey = (r) => (isDupPhone(r) ? "p" + leadPhoneKey(r.phone_number) : "e" + leadEmailKey(r.email));
+    rows = rows
+      .filter(isDuplicate)
+      .sort((a, b) => groupKey(a).localeCompare(groupKey(b)) || a.entry_number - b.entry_number);
+  } else {
+    rows = rows.filter((r) => !upcoming.includes(r) && !inquiries.includes(r));
+  }
+  setLeadsCount("table", rows.length);
+  document.getElementById("leadsEmpty").style.display = rows.length ? "none" : "block";
+  document.getElementById("leadsEmpty").textContent = leadsDuplicatesOnly
+    ? "No duplicates match this search."
+    : searching ? "No past or other leads match this search." : "No past or undated leads.";
+  applyLeadsView();
   const groupCounts = {};
   rows.forEach((r) => { groupCounts[r.gbs_group] = (groupCounts[r.gbs_group] || 0) + 1; });
   const columnCount = document.querySelectorAll("#leadsTable thead th").length;
@@ -2373,6 +2413,7 @@ document.getElementById("leadsSearch").addEventListener("input", () => loadLeads
 
 document.getElementById("showDuplicatesBtn").addEventListener("click", () => {
   leadsDuplicatesOnly = !leadsDuplicatesOnly;
+  if (leadsDuplicatesOnly) leadsView = "table"; // duplicates are shown in the table
   loadLeads();
 });
 

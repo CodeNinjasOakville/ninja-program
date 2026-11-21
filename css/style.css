@@ -819,6 +819,11 @@ button { font-size: 14px; }
 }
 .subtab-btn.active { background: #eef0fa; border-color: var(--accent); color: var(--accent); }
 .subtab-btn:hover { border-color: var(--accent); }
+/* Leads: Upcoming GBS / New inquiries / Messages / Past & other leads */
+.leads-subtabs { padding: 0 0 14px; }
+.subtab-count { display: inline-block; min-width: 20px; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #eef0f5; color: var(--muted); font-size: 12px; text-align: center; }
+.subtab-count:empty { display: none; }
+.subtab-count.attention { background: #d64545; color: #fff; }
 .tab-panel { padding-top: 14px; }
 #tab-settings.active + #tab-security.active { padding-top: 0; }
 
