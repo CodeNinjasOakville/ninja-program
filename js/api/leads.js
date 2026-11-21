@@ -182,3 +182,30 @@ route("DELETE", "/api/leads/:id", ({ params }) => {
 });
 
 route("POST", "/api/leads/bulk-delete", ({ body }) => bulkDelete("leads", body));
+
+// ---- Text messages from families (CRM "new inbound text" emails, see supabase/functions/lead-inquiry)
+
+/** "Michelle Tsui-DiBattista" -> ["michelle", "tsui", "dibattista"] */
+const nameParts = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(" ").filter(Boolean);
+
+/** Same person: the same name, or the same first name and the lead's last name is one of theirs. */
+export function sameParent(fromName, parentName) {
+  const a = nameParts(fromName), b = nameParts(parentName);
+  if (!a.length || !b.length) return false;
+  if (a.join(" ") === b.join(" ")) return true;
+  return b.length > 1 && a[0] === b[0] && a.slice(1).includes(b[b.length - 1]);
+}
+
+// New messages, newest first, each with the leads of the family it came from (matched by parent name).
+route("GET", "/api/lead-messages", () => {
+  const leads = conn.all("SELECT id, entry_number, ninja_name, parent_name, gbs_date, gbs_time FROM leads WHERE parent_name IS NOT NULL AND parent_name <> ''");
+  return conn.all("SELECT id, from_name, received, body, reply_link, original, created_at FROM lead_messages WHERE status = 'new' ORDER BY id DESC")
+    .map((m) => ({ ...m, leads: leads.filter((l) => sameParent(m.from_name, l.parent_name)).sort((x, y) => y.id - x.id) }));
+});
+
+// Someone has dealt with the message: it leaves the list (it is kept).
+route("POST", "/api/lead-messages/:id/done", ({ params }) => {
+  if (!conn.get("SELECT id FROM lead_messages WHERE id = ?", [params.id])) throw new ApiError("That message no longer exists.", 404);
+  conn.run("UPDATE lead_messages SET status = '' WHERE id = ?", [params.id]);
+  return { ok: true };
+});

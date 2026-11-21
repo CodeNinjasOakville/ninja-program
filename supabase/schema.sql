@@ -84,6 +84,16 @@ create table if not exists public.print_queue (
   updated_at timestamptz not null default now(), deleted boolean not null default false
 );
 
+-- Added later: text messages from families, from the CRM's "new inbound text" emails
+-- (supabase/functions/lead-inquiry). status is 'new' until someone presses Done ('' after that).
+create table if not exists public.lead_messages (
+  id bigint generated always as identity primary key,
+  from_name text not null, received text, body text, reply_link text,
+  status text default 'new', original text, email_message_id text,
+  created_at text default to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS'),
+  updated_at timestamptz not null default now(), deleted boolean not null default false
+);
+
 create table if not exists public.settings (
   key text primary key, value text not null,
   updated_at timestamptz not null default now()
@@ -96,6 +106,7 @@ create index if not exists active_ninjas_updated on public.active_ninjas (update
 create index if not exists jr_notes_updated on public.jr_notes (updated_at);
 create index if not exists jr_skills_updated on public.jr_skills (updated_at);
 create index if not exists print_queue_updated on public.print_queue (updated_at);
+create index if not exists lead_messages_updated on public.lead_messages (updated_at);
 create index if not exists settings_updated on public.settings (updated_at);
 create index if not exists families_updated on public.families (updated_at);
 create index if not exists ninjas_updated on public.ninjas (updated_at);
@@ -106,7 +117,7 @@ begin new.updated_at = now(); return new; end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','jr_skills','print_queue','settings','families','ninjas'] loop
+  foreach t in array array['leads','belt_entries','receipts','active_ninjas','jr_notes','jr_skills','print_queue','lead_messages','settings','families','ninjas'] loop
     execute format('drop trigger if exists touch on public.%I', t);
     execute format('create trigger touch before insert or update on public.%I for each row execute function public.touch_updated_at()', t);
     -- Only signed-in team members can read or change anything. Visitors who are not signed in get nothing.
@@ -220,3 +231,23 @@ begin
 end $$;
 revoke all on function public.add_tour_lead(jsonb) from public, anon, authenticated;
 grant execute on function public.add_tour_lead(jsonb) to service_role;
+
+-- Saves one text message from a CRM "new inbound text" email and returns its id. Only the email
+-- function may call it. The same email delivered twice is only saved once.
+create or replace function public.add_lead_message(p jsonb) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare n bigint;
+begin
+  if coalesce(p->>'email_message_id', '') <> '' then
+    select id into n from public.lead_messages
+      where email_message_id = p->>'email_message_id' and not deleted limit 1;
+    if found then return n; end if;
+  end if;
+  insert into public.lead_messages (from_name, received, body, reply_link, status, original, email_message_id)
+    values (coalesce(nullif(trim(p->>'from_name'), ''), '(name not found)'), p->>'received', p->>'body',
+      nullif(p->>'reply_link', ''), 'new', p->>'original', nullif(p->>'email_message_id', ''))
+    returning id into n;
+  return n;
+end $$;
+revoke all on function public.add_lead_message(jsonb) from public, anon, authenticated;
+grant execute on function public.add_lead_message(jsonb) to service_role;

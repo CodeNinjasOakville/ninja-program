@@ -2144,6 +2144,77 @@ function renderUpcomingLeads(rows, flags) {
   });
 }
 
+// Text messages from families (CRM "new inbound text" emails) that nobody has marked done, newest first.
+// Each shows the lead(s) of the parent it came from (matched by name), so staff see who it's about.
+async function renderLeadMessages(leadsById) {
+  const box = document.getElementById("leadMessages");
+  let messages = [];
+  try {
+    messages = await api("/api/lead-messages");
+  } catch (error) {
+    messages = []; // an older saved copy of the app without this route: just no list
+  }
+  box.innerHTML = "";
+  box.style.display = messages.length ? "" : "none";
+  if (!messages.length) return;
+  box.appendChild(el("div", { class: "gbs-upcoming-head" }, [
+    el("h3", { text: `New messages (${messages.length})` }),
+    el("span", { class: "muted", text: "Texts from families, from CRM emails. Reply in the CRM, then press ✓ Done." }),
+  ]));
+  const grid = el("div", { class: "gbs-day" });
+  messages.forEach((m) => {
+    const card = el("div", { class: "gbs-card message" });
+    card.appendChild(el("div", { class: "gbs-card-head" }, [
+      el("div", { class: "gbs-inquiry-label" }, [
+        el("span", { class: "gbs-message-tag", text: "💬 New text" }),
+        el("span", { class: "muted", text: m.received ? `received ${m.received}` : "" }),
+      ]),
+    ]));
+    card.appendChild(el("div", { class: "gbs-who" }, [el("span", { class: "gbs-name", text: m.from_name })]));
+    card.appendChild(el("div", { class: "gbs-message-body", text: m.body || "(no message text)" }));
+
+    // Which lead(s) it is about
+    const about = el("div", { class: "gbs-message-about" });
+    if (!m.leads.length) about.appendChild(el("span", { class: "muted", text: "No lead found with this parent's name." }));
+    m.leads.forEach((l) => {
+      const row = leadsById.get(l.id);
+      const childName = l.ninja_name && l.ninja_name !== NO_CHILD_NAME ? l.ninja_name : "Child's name not found";
+      const gbs = [l.gbs_date, l.gbs_time].filter(Boolean).join(" at ");
+      const btn = el("button", { class: "btn-link", type: "button", title: "Open this lead",
+        text: `Lead #${l.entry_number}: ${childName}` + (gbs ? ` (GBS ${gbs})` : "") });
+      if (row) btn.addEventListener("click", () => openLeadModal(row)); else btn.disabled = true;
+      about.appendChild(btn);
+    });
+    card.appendChild(about);
+
+    if (m.original) {
+      card.appendChild(el("details", { class: "gbs-original" }, [
+        el("summary", { text: "Original email" }),
+        el("div", { class: "gbs-original-text", text: m.original }),
+      ]));
+    }
+    const actions = el("div", { class: "gbs-inquiry-actions" });
+    if (/^https:\/\//i.test(m.reply_link || "")) {
+      actions.appendChild(el("a", { class: "btn-secondary btn-small", href: m.reply_link, target: "_blank", rel: "noopener noreferrer", text: "Reply in CRM" }));
+    }
+    const done = el("button", { class: "btn-primary btn-small", type: "button", title: "Dealt with: take it off this list", text: "✓ Done" });
+    done.addEventListener("click", async () => {
+      done.disabled = true;
+      try {
+        await api(`/api/lead-messages/${m.id}/done`, { method: "POST" });
+        loadLeads();
+      } catch (error) {
+        showBanner("leadsImportBanner", error.message, "error");
+        done.disabled = false;
+      }
+    });
+    actions.appendChild(done);
+    card.appendChild(actions);
+    grid.appendChild(card);
+  });
+  box.appendChild(grid);
+}
+
 // Leads that came in from CRM inquiry emails and haven't been checked yet, newest first.
 function renderInquiryLeads(rows, flags) {
   const box = document.getElementById("inquiryLeads");
@@ -2210,6 +2281,7 @@ async function loadLeads() {
   // New inquiries from CRM emails get their own cards at the very top until someone marks them complete.
   const showCards = sortedByGbs && !leadsDuplicatesOnly;
   const inquiries = showCards ? rows.filter((r) => r.inquiry_status === "new") : [];
+  renderLeadMessages(new Map(allRows.map((r) => [r.id, r])));
   renderInquiryLeads(inquiries, { isDupPhone, isDupEmail });
   const upcoming = showCards ? rows.filter((r) => r.gbs_group === "upcoming" && r.gbs_day && !inquiries.includes(r)) : [];
   renderUpcomingLeads(upcoming, { isDupPhone, isDupEmail });

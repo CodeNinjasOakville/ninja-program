@@ -286,3 +286,63 @@ export function parseDailyTourEmail(mail, todayISO) {
   });
   return out;
 }
+
+// ---------------------------------------------------------------------------------------------
+// CRM text message: "You have a new inbound text in CRM from <parent>! ... Text Information /
+// From: / Subject: / Received: 2026/11/21 15:00 / Message Body / <the text> / [Click Here to Reply ...]".
+// Kept apart from inquiries: it is saved as a message (lead_messages), not a lead.
+
+/** True for the CRM's "new inbound text" email. */
+export function isTextMessageEmail(mail) {
+  const text = String(mail.text || "") || htmlToText(mail.html);
+  return /new inbound text in CRM/i.test(text) || (/^\s*Text Information\s*$/im.test(text) && /^\s*Message Body\s*$/im.test(text));
+}
+
+const REPLY_TEXT = /click here to reply/i;
+
+/** The CRM's "reply to this text" link (https only), from the HTML or a markdown-style / bare link in the text. */
+function replyLink(mail) {
+  const html = String(mail.html || "");
+  for (const a of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    if (REPLY_TEXT.test(htmlToText(a[2]))) return htmlToText(a[1]).trim();
+  }
+  for (const line of String(mail.text || "").split(/\r?\n/)) {
+    if (!REPLY_TEXT.test(line)) continue;
+    const url = line.match(/https:\/\/[^\s)<>\]]+/);
+    if (url) return url[0];
+  }
+  return "";
+}
+
+/**
+ * The text message in one email:
+ *   {from_name, received, body, reply_link, original, email_message_id}
+ */
+export function parseTextMessageEmail(mail) {
+  const subject = clip(mail.subject, 300);
+  const text = (String(mail.text || "").trim() || htmlToText(mail.html)).replace(/\r\n?/g, "\n");
+  const lines = text.split("\n").map((l) => l.replace(/^[>\s]+/, "").replace(/[  ]+/g, " ").trim());
+  const field = (name) => {
+    const line = lines.find((l) => new RegExp(`^${name}\\s*:`, "i").test(l));
+    return line ? line.replace(/^[^:]*:\s*/, "").trim() : "";
+  };
+  const intro = text.match(/new inbound text in CRM from\s+(.+?)!/i);
+  const start = lines.findIndex((l) => /^message body:?$/i.test(l));
+  const body = [];
+  if (start >= 0) {
+    for (const line of lines.slice(start + 1)) {
+      if (REPLY_TEXT.test(line)) break;
+      body.push(line);
+    }
+  }
+  // The original, without the long tracking links (the reply link is kept on its own).
+  const original = text.replace(/\[?(Click Here to Reply[^\]\n]*)\]?\s*\(https?:[^)\s]*\)/gi, "[$1]").replace(/<?https?:\/\/\S{120,}>?/g, "[link]");
+  return {
+    from_name: clip(field("From") || (intro ? intro[1] : ""), 200),
+    received: clip(field("Received"), 100),
+    body: clip(body.join("\n").replace(/\n{3,}/g, "\n\n").trim(), 4000),
+    reply_link: clip(replyLink(mail), 2000),
+    original: clip((subject ? `Subject: ${subject}\n\n` : "") + original.trim(), 20000),
+    email_message_id: clip(mail.messageId, 300),
+  };
+}

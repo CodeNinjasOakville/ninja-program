@@ -4,7 +4,9 @@ import { check, finish } from "./helpers.mjs";
 import { openDatabase, closeDatabase, conn } from "../js/core/db.js";
 import { handleRequest } from "../js/api/index.js";
 import { parseInquiryEmail, htmlToText, splitDateTime, ageFromBirthDate,
-  isDailyTourEmail, parseDailyTourEmail, tourDateISO } from "../supabase/functions/lead-inquiry/parse.js";
+  isDailyTourEmail, parseDailyTourEmail, tourDateISO,
+  isTextMessageEmail, parseTextMessageEmail } from "../supabase/functions/lead-inquiry/parse.js";
+import { sameParent } from "../js/api/leads.js";
 
 const TODAY = "2026-11-20";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -165,6 +167,34 @@ const phoneTour = parseDailyTourEmail({ text: ["Here are your scheduled tours fo
 check("phone, 4pm, and age from date of birth", phoneTour.phone_number === "(905) 555-0123" && phoneTour.email === ""
   && phoneTour.gbs_time === "4:00 PM" && phoneTour.age === "8" && phoneTour.gbs_date === "2026-12-04", phoneTour);
 
+// ---- CRM "new inbound text" email: a message from a family, never an inquiry or a tour
+const REPLY_URL = "https://u1.ct.example.net/ls/click?upn=" + "x".repeat(300);
+const TEXT_MSG = ["Dear Robin Staff,",
+  "You have a new inbound text in CRM from Jamie Tsui-Fox! For your convenience, the message is below.", "",
+  `[Click Here to Reply to this Text in CRM](${REPLY_URL})`,
+  "Text Information", "From: Jamie Tsui-Fox", "Subject:", "Received: 2026/11/21 15:00",
+  "Message Body", "Yes, see you at noon!", "Can Ava come too?",
+  `[Click Here to Reply to this Text in CRM](${REPLY_URL})`].join("\n");
+const textMail = { subject: "New Text Message", messageId: "<txt-1>", text: TEXT_MSG };
+check("text message email recognised (and not a tour)", isTextMessageEmail(textMail) && !isDailyTourEmail(textMail));
+check("tour and inquiry emails are not text messages",
+  !isTextMessageEmail(tourMail) && !isTextMessageEmail({ text: ccrmText("x@example.com") }) && !isTextMessageEmail({ text: plain.inquiry_email }));
+const msg = parseTextMessageEmail(textMail);
+check("text message read", same(pick(msg, ["from_name", "received", "body", "reply_link", "email_message_id"]), {
+  from_name: "Jamie Tsui-Fox", received: "2026/11/21 15:00", body: "Yes, see you at noon!\nCan Ava come too?",
+  reply_link: REPLY_URL, email_message_id: "<txt-1>" }), msg);
+check("original kept without the long tracking links", msg.original.includes("Message Body\nYes, see you at noon!") && !msg.original.includes("xxxxxxxx"), msg.original);
+const msgHtml = parseTextMessageEmail({ html:
+  `<p>Dear Robin Staff,</p><p>You have a new inbound text in CRM from Jamie Tsui-Fox! For your convenience, the message is below.</p>` +
+  `<p><a href="${REPLY_URL}&amp;a=1">Click Here to Reply to this Text in CRM</a></p><h3>Text Information</h3>` +
+  `<p>From: Jamie Tsui-Fox<br>Subject:<br>Received: 2026/11/21 15:00</p><h3>Message Body</h3><p>Yes</p>` +
+  `<p><a href="${REPLY_URL}">Click Here to Reply to this Text in CRM</a></p>` });
+check("HTML text message", msgHtml.from_name === "Jamie Tsui-Fox" && msgHtml.body === "Yes" && msgHtml.reply_link === REPLY_URL + "&a=1", msgHtml);
+check("from name taken from the opening line when there is no From:", parseTextMessageEmail({
+  text: "You have a new inbound text in CRM from Lee Park!\nMessage Body\nOk" }).from_name === "Lee Park");
+check("same parent: exact, case, hyphenated surname", sameParent("Jamie Tsui-Fox", "jamie  tsui-fox") && sameParent("Jamie Tsui-Fox", "Jamie Fox")
+  && !sameParent("Jamie Tsui-Fox", "Jamie Park") && !sameParent("Jamie Tsui-Fox", "Jamie") && !sameParent("", "Jamie Fox"));
+
 // ---- helpers
 check("date + time split", same(splitDateTime("Saturday, Nov 21 @ 10am"), { date: "Saturday, Nov 21", time: "10am" }));
 check("date only stays as it is", same(splitDateTime("Nov 21, 2026"), { date: "Nov 21, 2026", time: "" }));
@@ -193,6 +223,21 @@ check("marked complete: now a normal lead, details kept", done.inquiry_status ==
 let missing = null;
 try { await handleRequest("POST", "/api/leads/99999/inquiry-done"); } catch (e) { missing = e.message; }
 check("completing a lead that is gone says so", missing === "That entry no longer exists.", missing);
+
+// ---- in the app: a text message arrives, shows with the family's lead, then is marked done
+await handleRequest("POST", "/api/leads", { ninja_name: "Blake Fox", parent_name: "Jamie Fox", gbs_date: "2026-11-21", gbs_time: "12:00 PM" });
+conn.run(`INSERT INTO lead_messages (from_name, received, body, reply_link, original, email_message_id)
+  VALUES ('Jamie Tsui-Fox', '2026/11/21 15:00', 'Yes', 'https://example.com/r', 'Subject: x', '<txt-1>'),
+         ('Unknown Person', '2026/11/21 16:00', 'Hi', '', '', '<txt-2>')`);
+let messages = await handleRequest("GET", "/api/lead-messages");
+check("new messages listed newest first, each with the family's lead", messages.length === 2 && messages[0].from_name === "Unknown Person"
+  && messages[0].leads.length === 0 && messages[1].leads.map((l) => l.ninja_name).join() === "Blake Fox" && messages[1].body === "Yes", messages);
+await handleRequest("POST", `/api/lead-messages/${messages[1].id}/done`);
+messages = await handleRequest("GET", "/api/lead-messages");
+check("done: off the list, still kept", messages.length === 1 && conn.get("SELECT status FROM lead_messages WHERE email_message_id = '<txt-1>'").status === "");
+missing = null;
+try { await handleRequest("POST", "/api/lead-messages/99999/done"); } catch (e) { missing = e.message; }
+check("done on a message that is gone says so", missing === "That message no longer exists.", missing);
 closeDatabase();
 
 finish("Inquiry emails");

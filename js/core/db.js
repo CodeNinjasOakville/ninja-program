@@ -141,6 +141,20 @@ CREATE TABLE IF NOT EXISTS print_queue (
     printed_date TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Text messages from families, added from the CRM's "new inbound text" emails
+-- (supabase/functions/lead-inquiry). status 'new' until someone presses Done ('' after that).
+CREATE TABLE IF NOT EXISTS lead_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_name TEXT NOT NULL,
+    received TEXT,
+    body TEXT,
+    reply_link TEXT,
+    status TEXT DEFAULT 'new',
+    original TEXT,
+    email_message_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 // Starter dropdown values (editable from the Settings tab).
@@ -356,6 +370,7 @@ export const SYNC_TABLES = {
   jr_notes: { pk: "id" },
   jr_skills: { pk: "id" },
   print_queue: { pk: "id" },
+  lead_messages: { pk: "id" },
   settings: { pk: "key" },
 };
 

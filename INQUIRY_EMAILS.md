@@ -20,6 +20,15 @@ name. **Tours are never inquiries**: these families already have a GBS booked, s
 straight to Upcoming GBS, and an inquiry the tour fills in leaves **New inquiries to follow up**.
 That tour's part of the email is added to the lead's original-email box.
 
+**When a family texts, the CRM sends a "new inbound text in CRM" email** (Text Information / From /
+Received / Message Body). That is a message, not an inquiry: it goes to the `lead_messages` table and
+shows at the top of the Leads tab under **New messages**, with the text, who sent it, the lead(s)
+with that parent's name (tap one to open it), **Reply in CRM** (the email's own reply link) and
+**✓ Done**, which takes it off the list.
+
+The function decides which kind each email is, in this order: daily tour email, text message, and
+anything else is read as a new-family inquiry.
+
 ```
 CRM ──email──> Outlook ──rule: redirect──> Postmark (inbound address)
                                               │  sends the email as JSON
@@ -39,8 +48,9 @@ Do the steps **in this order**. Allow about 30 minutes.
 
 ## 1. Upgrade the shared database (before publishing the new website files)
 Supabase → **SQL Editor** → New query → paste **all** of `supabase/schema.sql` → **Run**.
-It adds three columns to `leads` and the `add_lead_inquiry` and `add_tour_lead` functions (only the email function can
-use it). Safe to run again. If the new website goes live first, saving leads fails until this is done.
+It adds three columns to `leads`, the `lead_messages` table, and the `add_lead_inquiry`, `add_tour_lead`
+and `add_lead_message` functions (only the email function can use them). Safe to run again. If the new
+website goes live first, the app asks for this upgrade at sign-in until it is done.
 
 ## 2. Make up a secret
 Any long random text, e.g. from a password manager (letters and numbers only, 30+ characters).

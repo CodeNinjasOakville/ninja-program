@@ -2,6 +2,7 @@
 // LineLeader's "Daily Tour Email" (every tour that day) is told apart and handled differently: each
 // child on each tour updates the family's existing lead with the GBS date, time and staff member
 // (or adds a lead when there isn't one), through add_tour_lead in supabase/schema.sql.
+// The CRM's "new inbound text" email is a message from a family, saved to lead_messages (add_lead_message).
 //
 // Outlook forwards the CRM emails to an inbound-email address (Postmark), which sends each one here
 // as JSON. Set up step by step in INQUIRY_EMAILS.md. The address of this function includes a secret
@@ -10,7 +11,7 @@
 // Accepts Postmark's inbound JSON (Subject, TextBody, HtmlBody, From, MessageID), or the same in
 // lower case (subject, text, html, from, message_id) so another forwarding service can be used.
 
-import { parseInquiryEmail, isDailyTourEmail, parseDailyTourEmail } from "./parse.js";
+import { parseInquiryEmail, isDailyTourEmail, parseDailyTourEmail, isTextMessageEmail, parseTextMessageEmail } from "./parse.js";
 
 function sameSecret(a: string, b: string) {
   if (!a || !b || a.length !== b.length) return false;
@@ -63,6 +64,14 @@ Deno.serve(async (req: Request) => {
       saved.push({ entry_number: await res.json(), ninja_name: lead.ninja_name, parent_name: lead.parent_name, gbs_time: lead.gbs_time });
     }
     return Response.json({ ok: true, kind: "daily tours", saved });
+  }
+
+  // A text message from a family: saved as a message (Leads tab, "New messages"), never as a lead.
+  if (isTextMessageEmail(email)) {
+    const message = parseTextMessageEmail(email);
+    const res = await rpc("add_lead_message", message);
+    if (!res.ok) return new Response(`Could not save the message: ${await res.text()}`, { status: 500 });
+    return Response.json({ ok: true, kind: "text message", id: await res.json(), from_name: message.from_name });
   }
 
   const lead = parseInquiryEmail(email, torontoToday());
