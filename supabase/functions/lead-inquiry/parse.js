@@ -189,3 +189,100 @@ export function parseInquiryEmail(mail, todayISO) {
   lead.inquiry_message_id = clip(mail.messageId, 300);
   return lead;
 }
+
+// ---------------------------------------------------------------------------------------------
+// LineLeader "Daily Tour Email": sent the morning of the GBS, one email listing every tour that day:
+//   "Here are your scheduled tours for today, Saturday, 21 November, 2026:"
+//   "<Parent name> tour at 12:00pm with <Staff name>"
+//   then (sometimes) Parent Information (Primary Phone / Primary Email ...) and Child Information,
+//   one "Name: / Current Age: / Date of Birth:" block per child.
+// Each tour becomes one entry per child, already carrying the GBS date, time and staff member.
+
+const TOUR_LINE = /^([^:\t]+?)\s+tour at\s+(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)(?:\s+with\s+(.+?))?\s*$/i;
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+/** True for LineLeader's daily list of tours (not a single new-family inquiry). */
+export function isDailyTourEmail(mail) {
+  const text = String(mail.text || "") || htmlToText(mail.html);
+  return /daily tour email/i.test(String(mail.subject || "")) || /here are your scheduled tours for/i.test(text);
+}
+
+/** "Saturday, 21 November, 2026" (or "November 21, 2026") -> "2026-11-21"; "" if it can't be read. */
+export function tourDateISO(value) {
+  const t = String(value || "").toLowerCase();
+  const y = (t.match(/\b(20\d\d)\b/) || [])[1];
+  const mi = MONTHS.findIndex((m) => new RegExp(`\\b${m.slice(0, 3)}[a-z]*\\b`).test(t));
+  const d = (t.replace(/\b20\d\d\b/, "").match(/\b(\d{1,2})(?:st|nd|rd|th)?\b/) || [])[1];
+  if (!y || mi < 0 || !d) return "";
+  return `${y}-${String(mi + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/** "12:00pm" -> "12:00 PM", "4pm" -> "4:00 PM". */
+const tidyTime = (t) => {
+  const m = String(t).match(/(\d{1,2})(?::(\d{2}))?\s*([ap])/i);
+  return m ? `${+m[1]}:${m[2] || "00"} ${m[3].toUpperCase()}M` : String(t).trim();
+};
+
+/**
+ * Every tour in a Daily Tour Email:
+ *   [{parent_name, staff_name, gbs_date, gbs_time, email, phone_number, children: [{name, age}], text}]
+ * text is that tour's own part of the email (kept with the entry for staff).
+ */
+export function parseDailyTours(mail, todayISO) {
+  const text = (String(mail.text || "").trim() || htmlToText(mail.html)).replace(/\r\n?/g, "\n");
+  const lines = text.split("\n").map((l) => l.replace(/^[>\s]+/, "").replace(/[  ]+/g, " ").trim());
+  const dateLine = text.match(/scheduled tours for (?:today,?\s*)?([^\n:]+?\d{4})/i);
+  const gbs_date = (dateLine && tourDateISO(dateLine[1])) || todayISO || "";
+
+  const tours = [];
+  let tour = null, child = null;
+  const value = (line) => line.replace(/^[^:]*:\s*/, "").replace(/\t+/g, " ").trim();
+  for (const line of lines) {
+    const t = line.match(TOUR_LINE);
+    if (t) {
+      tour = { parent_name: t[1].trim(), staff_name: (t[3] || "").trim(), gbs_date, gbs_time: tidyTime(t[2]),
+        email: "", phone_number: "", children: [], lines: [line] };
+      tours.push(tour);
+      child = null;
+      continue;
+    }
+    if (!tour) continue;
+    tour.lines.push(line);
+    // "Primary Phone: Primary Email: x@y.com" (an empty phone runs into the next label): read each label.
+    // Labels start the line, except an email label right after the phone's (empty) value.
+    // ("Preferred Name:" is not a new child: only "Name:" at the start of a line is.)
+    for (const m of line.matchAll(/(?:^|(?<=\s))(Primary Phone|Primary Email|Alternate Phone|Alternate Email|Name|Current Age|Date of Birth)\s*:\s*((?:(?!(?:Primary|Alternate) (?:Phone|Email)\s*:).)*)/gi)) {
+      if (m.index > 0 && !/email/i.test(m[1])) continue;
+      const label = m[1].toLowerCase(), v = m[2].trim();
+      if (label === "name") { child = { name: v, age: "" }; if (v) tour.children.push(child); }
+      else if (label === "current age" && child && v) child.age = (v.match(/\d{1,2}/) || [""])[0];
+      else if (label === "date of birth" && child && v && !child.age) child.age = ageFromBirthDate(v, todayISO);
+      else if (label.endsWith("email") && v && !tour.email) tour.email = (v.match(EMAIL_RE) || [""])[0];
+      else if (label.endsWith("phone") && v && !tour.phone_number) tour.phone_number = (v.match(PHONE_RE) || [v])[0];
+    }
+  }
+  return tours.map(({ lines: ls, ...rest }) => ({ ...rest, text: ls.filter(Boolean).join("\n") }));
+}
+
+/**
+ * One lead per child (or one with no child name when the tour lists none), ready for
+ * supabase/schema.sql add_tour_lead(), which updates the family's existing lead or adds a new one.
+ */
+export function parseDailyTourEmail(mail, todayISO) {
+  const subject = clip(mail.subject, 300);
+  const messageId = clip(mail.messageId, 250);
+  const out = [];
+  parseDailyTours(mail, todayISO).forEach((tour, i) => {
+    const kids = tour.children.length ? tour.children : [{ name: "", age: "" }];
+    kids.forEach((kid, j) => out.push({
+      ninja_name: clip(kid.name, 200), age: clip(kid.age, 200),
+      parent_name: clip(tour.parent_name, 200), staff_name: clip(tour.staff_name, 200),
+      phone_number: clip(tour.phone_number, 200), email: clip(tour.email, 200),
+      gbs_date: tour.gbs_date, gbs_time: clip(tour.gbs_time, 200),
+      inquiry_email: clip((subject ? `Subject: ${subject}\n\n` : "") + tour.text, 20000),
+      // Same email delivered twice: each tour / child is still only added once.
+      inquiry_message_id: messageId ? `${messageId}#tour${i + 1}-${j + 1}` : "",
+    }));
+  });
+  return out;
+}

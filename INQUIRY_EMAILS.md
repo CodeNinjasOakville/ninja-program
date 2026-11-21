@@ -10,6 +10,15 @@ their information for your CORE programs...") only gives **Parent Name, Email an
 plus the program (CORE). So every inquiry arrives without the child's name, age or GBS date:
 look the family up in ChildcareCRM (or call them) and fill those in before marking it complete.
 
+**The morning of the GBS, LineLeader sends a "Lineleader Daily Tour Email"** listing every tour that
+day ("Jamie Fox tour at 12:00pm with Robin", then the parent's phone / email and a Name / Current Age
+block per child). The function tells it apart from a new-family email and, for each child on each
+tour, finds the family's existing lead (same email, phone or parent name) and fills in the child's
+name and age, the GBS date and time and the staff member. A family with no lead yet gets a new one.
+A tour that lists no children (just "Casey Moon tour at 12:00pm with Robin") is matched by the parent's
+name, or added under **New inquiries to follow up** so staff fill in the child. That tour's part of
+the email is added to the lead's original-email box.
+
 ```
 CRM ──email──> Outlook ──rule: redirect──> Postmark (inbound address)
                                               │  sends the email as JSON
@@ -29,7 +38,7 @@ Do the steps **in this order**. Allow about 30 minutes.
 
 ## 1. Upgrade the shared database (before publishing the new website files)
 Supabase → **SQL Editor** → New query → paste **all** of `supabase/schema.sql` → **Run**.
-It adds three columns to `leads` and the `add_lead_inquiry` function (only the email function can
+It adds three columns to `leads` and the `add_lead_inquiry` and `add_tour_lead` functions (only the email function can
 use it). Safe to run again. If the new website goes live first, saving leads fails until this is done.
 
 ## 2. Make up a secret
@@ -62,7 +71,8 @@ The function's address is shown on its page, like
 ## 5. Outlook rule (sends the CRM emails to Postmark)
 Outlook on the web → **Settings** → **Mail** → **Rules** → **Add new rule**:
 - Condition: **Subject or body includes** `A new family has submitted their information`
-  (the opening line of ChildcareCRM's new-family email). Or **From** = the address those emails come from.
+  (the opening line of ChildcareCRM's new-family email), **or Subject includes** `Daily Tour Email`
+  (LineLeader's list of the day's tours). Or **From** = the address those emails come from.
 - Action: **Redirect to** = the Postmark inbound address. (Redirect keeps the email exactly as the
   CRM sent it; "Forward to" also works.)
 - Keep "Stop processing more rules" off, so the email still lands in your inbox as well.

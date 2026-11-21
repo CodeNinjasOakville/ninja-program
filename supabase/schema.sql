@@ -151,3 +151,70 @@ begin
 end $$;
 revoke all on function public.add_lead_inquiry(jsonb) from public, anon, authenticated;
 grant execute on function public.add_lead_inquiry(jsonb) to service_role;
+
+-- Added later: LineLeader's "Daily Tour Email" (the morning of the GBS, every tour that day).
+-- One call per child on a tour. The family's existing lead is found (same email, phone or parent
+-- name, and the same child, or the inquiry lead still waiting for a child's name) and given the
+-- GBS date, time, staff member and any details it was missing. With no such lead, a new one is
+-- added (marked 'new' only when the tour gave no child's name, so staff fill it in).
+-- The same email delivered twice changes nothing.
+create or replace function public.add_tour_lead(p jsonb) returns integer
+language plpgsql security definer set search_path = public as $$
+declare
+  n integer; lead_id bigint;
+  no_name constant text := '(child''s name not found)';
+  kid text := lower(trim(coalesce(p->>'ninja_name', '')));
+  em text := lower(trim(coalesce(p->>'email', '')));
+  ph text := right(regexp_replace(coalesce(p->>'phone_number', ''), '\D', '', 'g'), 10);
+  par text := lower(trim(coalesce(p->>'parent_name', '')));
+  tour text := coalesce(p->>'inquiry_email', '');
+begin
+  if coalesce(p->>'inquiry_message_id', '') <> '' then
+    select entry_number into n from public.leads
+      where inquiry_message_id = p->>'inquiry_message_id' and not deleted limit 1;
+    if found then return n; end if;
+  end if;
+  perform pg_advisory_xact_lock(732001);
+
+  select l.id, l.entry_number into lead_id, n from public.leads l
+    where not l.deleted
+      and ((em <> '' and lower(trim(coalesce(l.email, ''))) = em)
+        or (length(ph) = 10 and right(regexp_replace(coalesce(l.phone_number, ''), '\D', '', 'g'), 10) = ph)
+        or (par <> '' and lower(trim(coalesce(l.parent_name, ''))) = par))
+      and (kid = '' or l.ninja_name = no_name
+        or lower(trim(l.ninja_name)) = kid
+        or split_part(lower(trim(l.ninja_name)), ' ', 1) = split_part(kid, ' ', 1))
+    order by case when kid <> '' and lower(trim(l.ninja_name)) = kid then 0
+                  when kid <> '' and split_part(lower(trim(l.ninja_name)), ' ', 1) = split_part(kid, ' ', 1) then 1
+                  when l.ninja_name = no_name then 2 else 3 end,
+             l.id desc
+    limit 1;
+
+  if lead_id is not null then
+    update public.leads set
+      ninja_name = case when ninja_name = no_name and kid <> '' then trim(p->>'ninja_name') else ninja_name end,
+      parent_name = coalesce(nullif(trim(parent_name), ''), p->>'parent_name'),
+      phone_number = coalesce(nullif(trim(phone_number), ''), nullif(p->>'phone_number', '')),
+      email = coalesce(nullif(trim(email), ''), nullif(p->>'email', '')),
+      age = coalesce(nullif(trim(age), ''), nullif(p->>'age', '')),
+      gbs_date = coalesce(nullif(p->>'gbs_date', ''), gbs_date),
+      gbs_time = coalesce(nullif(p->>'gbs_time', ''), gbs_time),
+      staff_name = coalesce(nullif(p->>'staff_name', ''), staff_name),
+      inquiry_email = case when coalesce(inquiry_email, '') = '' then tour
+                           when tour = '' or position(tour in inquiry_email) > 0 then inquiry_email
+                           else inquiry_email || E'\n\n---------- Daily tour email ----------\n\n' || tour end
+      where id = lead_id;
+    return n;
+  end if;
+
+  select coalesce(max(entry_number), 0) + 1 into n from public.leads;
+  insert into public.leads (entry_number, ninja_name, parent_name, phone_number, email, age, staff_name,
+      gbs_date, gbs_time, lead_date, inquiry_status, inquiry_email, inquiry_message_id)
+    values (n, coalesce(nullif(trim(p->>'ninja_name'), ''), no_name),
+      p->>'parent_name', p->>'phone_number', p->>'email', p->>'age', p->>'staff_name',
+      p->>'gbs_date', p->>'gbs_time', to_char(now() at time zone 'America/Toronto', 'YYYY-MM-DD'),
+      case when kid = '' then 'new' else '' end, tour, nullif(p->>'inquiry_message_id', ''));
+  return n;
+end $$;
+revoke all on function public.add_tour_lead(jsonb) from public, anon, authenticated;
+grant execute on function public.add_tour_lead(jsonb) to service_role;

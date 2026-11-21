@@ -3,7 +3,8 @@
 import { check, finish } from "./helpers.mjs";
 import { openDatabase, closeDatabase, conn } from "../js/core/db.js";
 import { handleRequest } from "../js/api/index.js";
-import { parseInquiryEmail, htmlToText, splitDateTime, ageFromBirthDate } from "../supabase/functions/lead-inquiry/parse.js";
+import { parseInquiryEmail, htmlToText, splitDateTime, ageFromBirthDate,
+  isDailyTourEmail, parseDailyTourEmail, tourDateISO } from "../supabase/functions/lead-inquiry/parse.js";
 
 const TODAY = "2026-11-20";
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -120,6 +121,49 @@ check("no parent email: the CRM's support address is not used", ccrmNoEmail.emai
 const forwardedByStaff = parseInquiryEmail({ from: "Front Desk <frontdesk@example.org>",
   text: "From: ChildcareCRM <notifications@childcarecrm.com>\nTo: frontdesk@example.org\n\n" + ccrmText("") }, TODAY);
 check("forwarded without a parent email: neither the CRM's nor our own address is used", forwardedByStaff.email === "", forwardedByStaff.email);
+
+// ---- LineLeader "Daily Tour Email": every tour that day in one email, told apart from inquiries
+const tourChild = (name, age, dob) => [`Name: ${name}`, "Preferred Name:", `Current Age: ${age}`, `Date of Birth: ${dob}`,
+  "Gender:", "Expected Start Date:", "Comments:", "Child Schedule:", "Monday\tTuesday\tWednesday\tThursday\tFriday",
+  "AM:\tN\tN\tN\tN\tN", "PM:\tN\tN\tN\tN\tN"];
+const TOUR_TEXT = [
+  "Good Morning Alex,", "", "We hope your day is off to a great start!",
+  '"Procrastination is the thief of time, collar him." -Charles Dickens',
+  "Here are your scheduled tours for today, Saturday, 21 November, 2026:",
+  "Jamie Fox tour at 12:00pm with Robin Staff",
+  "Parent Information",
+  "Primary Phone: Primary Email: jamie.fox@example.com",
+  "Alternate Phone:", "Alternate Email:", "Address:", "City:",
+  "Inquiry Type: Web", "Lead Source: Import", "Relation to Child: Guardian", "Lead Comments:",
+  "Child Information",
+  ...tourChild("Blake Fox", 7, "2019-01-01"),
+  ...tourChild("Ava Fox", 4, "2022-02-17"),
+  "Casey Moon tour at 12:00pm with Robin Staff",
+].join("\n");
+const tourMail = { subject: "Lineleader Daily Tour Email", from: "LineLeader <no-reply@lineleader.example>", messageId: "<tour-1>", text: TOUR_TEXT };
+check("daily tour email recognised", isDailyTourEmail(tourMail) && isDailyTourEmail({ text: TOUR_TEXT }));
+check("inquiry email is not a tour email", !isDailyTourEmail({ subject: "New Family Inquiry", text: ccrmText("x@example.com") }));
+const tourLeads = parseDailyTourEmail(tourMail, "2026-11-21");
+const TOUR_KEYS = ["ninja_name", "age", "parent_name", "staff_name", "email", "phone_number", "gbs_date", "gbs_time"];
+const fox = { parent_name: "Jamie Fox", staff_name: "Robin Staff", email: "jamie.fox@example.com", phone_number: "", gbs_date: "2026-11-21", gbs_time: "12:00 PM" };
+check("one entry per child, plus one for the tour with no details", same(tourLeads.map((l) => pick(l, TOUR_KEYS)), [
+  { ninja_name: "Blake Fox", age: "7", ...fox },
+  { ninja_name: "Ava Fox", age: "4", ...fox },
+  { ninja_name: "", age: "", parent_name: "Casey Moon", staff_name: "Robin Staff", email: "", phone_number: "", gbs_date: "2026-11-21", gbs_time: "12:00 PM" },
+]), tourLeads.map((l) => pick(l, TOUR_KEYS)));
+check("each tour keeps only its own part of the email",
+  tourLeads[0].inquiry_email.includes("Jamie Fox tour at") && !tourLeads[0].inquiry_email.includes("Casey Moon")
+  && tourLeads[2].inquiry_email === "Subject: Lineleader Daily Tour Email\n\nCasey Moon tour at 12:00pm with Robin Staff", tourLeads[2].inquiry_email);
+check("each child has its own message id (added once each)",
+  same(tourLeads.map((l) => l.inquiry_message_id), ["<tour-1>#tour1-1", "<tour-1>#tour1-2", "<tour-1>#tour2-1"]));
+const tourHtml = parseDailyTourEmail({ subject: "Lineleader Daily Tour Email", html: "<p>" + TOUR_TEXT.split("\n").join("</p><p>") + "</p>" }, "2026-11-21");
+check("HTML tour email reads the same", same(tourHtml.map((l) => pick(l, TOUR_KEYS)), tourLeads.map((l) => pick(l, TOUR_KEYS))), tourHtml.map((l) => pick(l, TOUR_KEYS)));
+check("tour dates", tourDateISO("Saturday, 21 November, 2026") === "2026-11-21" && tourDateISO("Monday, December 7, 2026") === "2026-12-07" && tourDateISO("soon") === "");
+const phoneTour = parseDailyTourEmail({ text: ["Here are your scheduled tours for today, Friday, 4 December, 2026:",
+  "Lee Park tour at 4pm with Robin Staff", "Primary Phone: (905) 555-0123 Primary Email:", "Name: Sky Park", "Current Age:",
+  "Date of Birth: 2018-01-01"].join("\n") }, "2026-12-04")[0];
+check("phone, 4pm, and age from date of birth", phoneTour.phone_number === "(905) 555-0123" && phoneTour.email === ""
+  && phoneTour.gbs_time === "4:00 PM" && phoneTour.age === "8" && phoneTour.gbs_date === "2026-12-04", phoneTour);
 
 // ---- helpers
 check("date + time split", same(splitDateTime("Saturday, Nov 21 @ 10am"), { date: "Saturday, Nov 21", time: "10am" }));
