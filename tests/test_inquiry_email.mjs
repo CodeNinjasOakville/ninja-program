@@ -190,6 +190,9 @@ const msgHtml = parseTextMessageEmail({ html:
   `<p>From: Jamie Tsui-Fox<br>Subject:<br>Received: 2026/11/21 15:00</p><h3>Message Body</h3><p>Yes</p>` +
   `<p><a href="${REPLY_URL}">Click Here to Reply to this Text in CRM</a></p>` });
 check("HTML text message", msgHtml.from_name === "Jamie Tsui-Fox" && msgHtml.body === "Yes" && msgHtml.reply_link === REPLY_URL + "&a=1", msgHtml);
+const forwardedText = parseTextMessageEmail({ text: "From: CRM Notifications <notifications@crm.example.com>\nSent: Saturday, November 21, 2026\n" +
+  TEXT_MSG.replace("in CRM from Jamie Tsui-Fox!", "in CRM!") });
+check("forwarded: the family's name, not the automated sender's", forwardedText.from_name === "Jamie Tsui-Fox", forwardedText.from_name);
 check("from name taken from the opening line when there is no From:", parseTextMessageEmail({
   text: "You have a new inbound text in CRM from Lee Park!\nMessage Body\nOk" }).from_name === "Lee Park");
 check("same parent: exact, case, hyphenated surname", sameParent("Jamie Tsui-Fox", "jamie  tsui-fox") && sameParent("Jamie Tsui-Fox", "Jamie Fox")

@@ -322,11 +322,15 @@ export function parseTextMessageEmail(mail) {
   const subject = clip(mail.subject, 300);
   const text = (String(mail.text || "").trim() || htmlToText(mail.html)).replace(/\r\n?/g, "\n");
   const lines = text.split("\n").map((l) => l.replace(/^[>\s]+/, "").replace(/[  ]+/g, " ").trim());
+  // Only the "Text Information" part: a forwarded email's own From: (the CRM's automated address,
+  // the same on every one) comes earlier and is not the family.
+  const info = Math.max(0, lines.findIndex((l) => /^text information:?$/i.test(l)));
   const field = (name) => {
-    const line = lines.find((l) => new RegExp(`^${name}\\s*:`, "i").test(l));
+    const line = lines.slice(info).find((l) => new RegExp(`^${name}\\s*:`, "i").test(l));
     return line ? line.replace(/^[^:]*:\s*/, "").trim() : "";
   };
   const intro = text.match(/new inbound text in CRM from\s+(.+?)!/i);
+  const looksAutomated = (name) => /@|no-?reply|notification|crm|lineleader/i.test(name);
   const start = lines.findIndex((l) => /^message body:?$/i.test(l));
   const body = [];
   if (start >= 0) {
@@ -338,7 +342,8 @@ export function parseTextMessageEmail(mail) {
   // The original, without the long tracking links (the reply link is kept on its own).
   const original = text.replace(/\[?(Click Here to Reply[^\]\n]*)\]?\s*\(https?:[^)\s]*\)/gi, "[$1]").replace(/<?https?:\/\/\S{120,}>?/g, "[link]");
   return {
-    from_name: clip(field("From") || (intro ? intro[1] : ""), 200),
+    // The family: from "new inbound text in CRM from <name>!", else Text Information's From:.
+    from_name: clip([intro ? intro[1].trim() : "", field("From")].find((n) => n && !looksAutomated(n)) || "", 200),
     received: clip(field("Received"), 100),
     body: clip(body.join("\n").replace(/\n{3,}/g, "\n\n").trim(), 4000),
     reply_link: clip(replyLink(mail), 2000),
