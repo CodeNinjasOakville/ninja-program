@@ -155,8 +155,9 @@ grant execute on function public.add_lead_inquiry(jsonb) to service_role;
 -- Added later: LineLeader's "Daily Tour Email" (the morning of the GBS, every tour that day).
 -- One call per child on a tour. The family's existing lead is found (same email, phone or parent
 -- name, and the same child, or the inquiry lead still waiting for a child's name) and given the
--- GBS date, time, staff member and any details it was missing. With no such lead, a new one is
--- added (marked 'new' only when the tour gave no child's name, so staff fill it in).
+-- GBS date, time, staff member and any details it was missing. With no such lead, a new one is added.
+-- Tours are never inquiries: these families already have a GBS booked, so a new lead is a normal one
+-- (it shows in Upcoming GBS), and an inquiry lead it fills in leaves "New inquiries to follow up".
 -- The same email delivered twice changes nothing.
 create or replace function public.add_tour_lead(p jsonb) returns integer
 language plpgsql security definer set search_path = public as $$
@@ -200,6 +201,7 @@ begin
       gbs_date = coalesce(nullif(p->>'gbs_date', ''), gbs_date),
       gbs_time = coalesce(nullif(p->>'gbs_time', ''), gbs_time),
       staff_name = coalesce(nullif(p->>'staff_name', ''), staff_name),
+      inquiry_status = '',
       inquiry_email = case when coalesce(inquiry_email, '') = '' then tour
                            when tour = '' or position(tour in inquiry_email) > 0 then inquiry_email
                            else inquiry_email || E'\n\n---------- Daily tour email ----------\n\n' || tour end
@@ -213,7 +215,7 @@ begin
     values (n, coalesce(nullif(trim(p->>'ninja_name'), ''), no_name),
       p->>'parent_name', p->>'phone_number', p->>'email', p->>'age', p->>'staff_name',
       p->>'gbs_date', p->>'gbs_time', to_char(now() at time zone 'America/Toronto', 'YYYY-MM-DD'),
-      case when kid = '' then 'new' else '' end, tour, nullif(p->>'inquiry_message_id', ''));
+      '', tour, nullif(p->>'inquiry_message_id', ''));
   return n;
 end $$;
 revoke all on function public.add_tour_lead(jsonb) from public, anon, authenticated;

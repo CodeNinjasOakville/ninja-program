@@ -16,8 +16,9 @@ block per child). The function tells it apart from a new-family email and, for e
 tour, finds the family's existing lead (same email, phone or parent name) and fills in the child's
 name and age, the GBS date and time and the staff member. A family with no lead yet gets a new one.
 A tour that lists no children (just "Casey Moon tour at 12:00pm with Robin") is matched by the parent's
-name, or added under **New inquiries to follow up** so staff fill in the child. That tour's part of
-the email is added to the lead's original-email box.
+name. **Tours are never inquiries**: these families already have a GBS booked, so their leads go
+straight to Upcoming GBS, and an inquiry the tour fills in leaves **New inquiries to follow up**.
+That tour's part of the email is added to the lead's original-email box.
 
 ```
 CRM ──email──> Outlook ──rule: redirect──> Postmark (inbound address)
