@@ -2123,6 +2123,7 @@ function upcomingLeadCard(row, flags, inquiry = false) {
 
 function renderUpcomingLeads(rows, flags, emptyText) {
   const box = document.getElementById("upcomingLeads");
+  if (!box) return; // an old saved copy of the page without this list
   box.innerHTML = "";
   if (!rows.length) {
     box.appendChild(el("div", { class: "empty-state", text: emptyText }));
@@ -2155,6 +2156,7 @@ function renderUpcomingLeads(rows, flags, emptyText) {
 // Each shows the lead(s) of the parent it came from (matched by name), so staff see who it's about.
 async function renderLeadMessages(leadsById, search) {
   const box = document.getElementById("leadMessages");
+  if (!box) return; // an old saved copy of the page without this list
   let messages = [];
   try {
     messages = await api("/api/lead-messages");
@@ -2236,6 +2238,7 @@ async function renderLeadMessages(leadsById, search) {
 // Leads that came in from CRM inquiry emails and haven't been checked yet, newest first.
 function renderInquiryLeads(rows, flags, emptyText) {
   const box = document.getElementById("inquiryLeads");
+  if (!box) return; // an old saved copy of the page without this list
   box.innerHTML = "";
   if (!rows.length) {
     box.appendChild(el("div", { class: "empty-state", text: emptyText }));
@@ -2255,19 +2258,25 @@ function renderInquiryLeads(rows, flags, emptyText) {
 // Messages, and Past & other leads (the table, also used by Show Duplicates).
 // (LEADS_VIEWS and leadsView are at the top, next to the pages.)
 function applyLeadsView() {
+  // A browser still holding the old page (no tabs): show every list as before and offer the update.
+  if (!document.getElementById("leadsSubtabs")) {
+    Object.values(LEADS_VIEWS).forEach((id) => { const box = document.getElementById(id); if (box) box.style.display = ""; });
+    offerLatestVersion("the Leads tabs couldn't be shown");
+    return;
+  }
   Object.entries(LEADS_VIEWS).forEach(([view, id]) => { document.getElementById(id).style.display = view === leadsView ? "" : "none"; });
-  document.querySelectorAll("#leadsSubtabs .subtab-btn").forEach((b) => b.classList.toggle("active", b.dataset.leadsView === leadsView));
+  document.querySelectorAll("#leadsSubtabs .leads-tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.leadsView === leadsView));
 }
 
 /** The number on a Leads tab; "attention" ones (inquiries, messages) are highlighted when not zero. */
 function setLeadsCount(view, count, attention = false) {
-  const btn = document.querySelector(`#leadsSubtabs [data-leads-view="${view}"]`);
-  const badge = btn.querySelector(".subtab-count");
+  const badge = document.querySelector(`#leadsSubtabs [data-leads-view="${view}"] .subtab-count`);
+  if (!badge) return; // old page without the tabs
   badge.textContent = String(count);
   badge.classList.toggle("attention", attention && count > 0);
 }
 
-document.querySelectorAll("#leadsSubtabs .subtab-btn").forEach((btn) => btn.addEventListener("click", () => {
+document.querySelectorAll("#leadsSubtabs .leads-tab-btn").forEach((btn) => btn.addEventListener("click", () => {
   leadsView = btn.dataset.leadsView;
   // Show Duplicates belongs to the table; leaving the table ends it.
   if (leadsView !== "table" && leadsDuplicatesOnly) { leadsDuplicatesOnly = false; loadLeads(); }
