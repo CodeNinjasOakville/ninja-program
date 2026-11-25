@@ -26,8 +26,13 @@ shows at the top of the Leads tab under **New messages**, with the text, who sen
 with that parent's name (tap one to open it), **Reply in CRM** (the email's own reply link) and
 **✓ Done**, which takes it off the list.
 
-The function decides which kind each email is, in this order: daily tour email, text message, and
-anything else is read as a new-family inquiry.
+**Before a GBS the CRM sends a "Tour Reminder"** ("...you have a scheduled Tour with Lee Park on
+11/25/2026 at 6:00pm. Lee may be contacted at (905) 555-0123 or lee@example.com."). It is handled
+like a daily tour: the family's lead (same email, phone or parent name) gets that GBS date and time,
+and it leaves New inquiries if it was there. A family with no lead yet gets a normal one.
+
+The function decides which kind each email is, in this order: daily tour email, tour reminder, text
+message, and anything else is read as a new-family inquiry.
 
 ```
 CRM ──email──> Outlook ──rule: redirect──> Postmark (inbound address)

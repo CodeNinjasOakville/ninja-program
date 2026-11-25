@@ -288,6 +288,53 @@ export function parseDailyTourEmail(mail, todayISO) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// CRM "Tour Reminder" (one GBS, sent ahead of it):
+//   "This is a REMINDER for CN Oakville, ON that you have a scheduled Tour with <parent> on 11/25/2026
+//    at 6:00pm.  <First> may be contacted at (905) 555-0101 or name@example.com."
+// Like a daily tour: it updates the family's existing lead (add_tour_lead), never an inquiry.
+
+const REMINDER_RE = /you have a scheduled tour with\s+(.+?)\s+on\s+([^\n]+?)\s+at\s+(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)/i;
+
+/** True for the CRM's "Tour Reminder" email. */
+export function isTourReminderEmail(mail) {
+  const text = String(mail.text || "") || htmlToText(mail.html);
+  return REMINDER_RE.test(text.replace(/\s+/g, " ")) || (/tour reminder/i.test(String(mail.subject || "")) && /scheduled tour with/i.test(text));
+}
+
+/** "11/25/2026" (month first, as the CRM writes it), "2026-11-25" or "November 25, 2026" -> "2026-11-25". */
+function reminderDateISO(value) {
+  const t = String(value || "").trim();
+  let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  return tourDateISO(t);
+}
+
+/** The one tour in a Tour Reminder, as a lead for add_tour_lead (in a list, like parseDailyTourEmail). */
+export function parseTourReminderEmail(mail) {
+  const subject = clip(mail.subject, 300);
+  const text = (String(mail.text || "").trim() || htmlToText(mail.html)).replace(/\r\n?/g, "\n");
+  const flat = text.replace(/\s+/g, " ");
+  const m = flat.match(REMINDER_RE);
+  if (!m) return [];
+  const after = flat.slice(m.index);
+  const at = after.search(/may be contacted at/i);
+  const contactText = at >= 0 ? after.slice(at, at + 250) : after.slice(0, 400);
+  // Only the reminder sentences, without the long "Go to Task" / "Add to Calendar" tracking links.
+  const shown = text.replace(/<https?:[^>\s]*>/g, "").replace(/https?:\/\/\S{120,}/g, "[link]").replace(/\n{3,}/g, "\n\n").trim();
+  return [{
+    ninja_name: "", age: "",
+    parent_name: clip(m[1], 200), staff_name: "",
+    phone_number: clip((contactText.match(PHONE_RE) || [""])[0], 200),
+    email: clip((contactText.match(EMAIL_RE) || [""])[0], 200),
+    gbs_date: reminderDateISO(m[2]), gbs_time: tidyTime(m[3]),
+    inquiry_email: clip((subject ? `Subject: ${subject}\n\n` : "") + shown, 20000),
+    inquiry_message_id: mail.messageId ? `${clip(mail.messageId, 250)}#reminder` : "",
+  }];
+}
+
+// ---------------------------------------------------------------------------------------------
 // CRM text message: "You have a new inbound text in CRM from <parent>! ... Text Information /
 // From: / Subject: / Received: 2026/11/21 15:00 / Message Body / <the text> / [Click Here to Reply ...]".
 // Kept apart from inquiries: it is saved as a message (lead_messages), not a lead.

@@ -1,7 +1,8 @@
 // Supabase Edge Function: turns a CRM inquiry email into a new lead marked "new inquiry".
 // LineLeader's "Daily Tour Email" (every tour that day) is told apart and handled differently: each
 // child on each tour updates the family's existing lead with the GBS date, time and staff member
-// (or adds a lead when there isn't one), through add_tour_lead in supabase/schema.sql.
+// (or adds a lead when there isn't one), through add_tour_lead in supabase/schema.sql. The CRM's
+// "Tour Reminder" (one GBS, sent ahead of it) does the same for that one family.
 // The CRM's "new inbound text" email is a message from a family, saved to lead_messages (add_lead_message).
 //
 // Outlook forwards the CRM emails to an inbound-email address (Postmark), which sends each one here
@@ -11,7 +12,8 @@
 // Accepts Postmark's inbound JSON (Subject, TextBody, HtmlBody, From, MessageID), or the same in
 // lower case (subject, text, html, from, message_id) so another forwarding service can be used.
 
-import { parseInquiryEmail, isDailyTourEmail, parseDailyTourEmail, isTextMessageEmail, parseTextMessageEmail } from "./parse.js";
+import { parseInquiryEmail, isDailyTourEmail, parseDailyTourEmail, isTourReminderEmail, parseTourReminderEmail,
+  isTextMessageEmail, parseTextMessageEmail } from "./parse.js";
 
 function sameSecret(a: string, b: string) {
   if (!a || !b || a.length !== b.length) return false;
@@ -53,8 +55,11 @@ Deno.serve(async (req: Request) => {
     body: JSON.stringify({ p }),
   });
 
-  if (isDailyTourEmail(email)) {
-    const tours = parseDailyTourEmail(email, torontoToday());
+  // The day's tours, or a reminder of one tour: both update the family's existing lead with its GBS
+  // (or add one), never an inquiry.
+  const reminder = !isDailyTourEmail(email) && isTourReminderEmail(email);
+  if (isDailyTourEmail(email) || reminder) {
+    const tours = reminder ? parseTourReminderEmail(email) : parseDailyTourEmail(email, torontoToday());
     const saved = [];
     // One at a time, so two children of the same family don't both fill the same lead.
     for (const lead of tours) {
@@ -63,7 +68,7 @@ Deno.serve(async (req: Request) => {
       if (!res.ok) return new Response(`Could not save the tour for ${lead.parent_name}: ${await res.text()}`, { status: 500 });
       saved.push({ entry_number: await res.json(), ninja_name: lead.ninja_name, parent_name: lead.parent_name, gbs_time: lead.gbs_time });
     }
-    return Response.json({ ok: true, kind: "daily tours", saved });
+    return Response.json({ ok: true, kind: reminder ? "tour reminder" : "daily tours", saved });
   }
 
   // A text message from a family: saved as a message (Leads tab, "New messages"), never as a lead.

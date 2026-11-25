@@ -4,7 +4,7 @@ import { check, finish } from "./helpers.mjs";
 import { openDatabase, closeDatabase, conn } from "../js/core/db.js";
 import { handleRequest } from "../js/api/index.js";
 import { parseInquiryEmail, htmlToText, splitDateTime, ageFromBirthDate,
-  isDailyTourEmail, parseDailyTourEmail, tourDateISO,
+  isDailyTourEmail, parseDailyTourEmail, tourDateISO, isTourReminderEmail, parseTourReminderEmail,
   isTextMessageEmail, parseTextMessageEmail } from "../supabase/functions/lead-inquiry/parse.js";
 import { sameParent } from "../js/api/leads.js";
 
@@ -166,6 +166,25 @@ const phoneTour = parseDailyTourEmail({ text: ["Here are your scheduled tours fo
   "Date of Birth: 2018-01-01"].join("\n") }, "2026-12-04")[0];
 check("phone, 4pm, and age from date of birth", phoneTour.phone_number === "(905) 555-0123" && phoneTour.email === ""
   && phoneTour.gbs_time === "4:00 PM" && phoneTour.age === "8" && phoneTour.gbs_date === "2026-12-04", phoneTour);
+
+// ---- CRM "Tour Reminder": one booked GBS, updates the family's lead (never an inquiry)
+const LONG_LINK = "https://u1.ct.example.net/ls/click?upn=" + "y".repeat(300);
+const reminderMail = { subject: "Tour Reminder Tour Reminder at CN Oakville, ON", messageId: "<rem-1>", text: [
+  "This is a REMINDER for CN Oakville, ON that you have a scheduled Tour with Lee Park on 11/25/2026 at 6:00pm.  " +
+    "Lee may be contacted at (905) 555-0123 or lee.park@example.com.", "", "", "",
+  ` Go to Task <${LONG_LINK}>`, "", "", `Add to Calendar<${LONG_LINK}>`].join("\n") };
+check("tour reminder recognised, and not taken for anything else", isTourReminderEmail(reminderMail) && !isDailyTourEmail(reminderMail)
+  && !isTextMessageEmail(reminderMail) && !isTourReminderEmail(tourMail) && !isTourReminderEmail({ text: ccrmText("x@example.com") }));
+const reminder = parseTourReminderEmail(reminderMail);
+check("tour reminder read", reminder.length === 1 && same(pick(reminder[0], TOUR_KEYS), {
+  ninja_name: "", age: "", parent_name: "Lee Park", staff_name: "", email: "lee.park@example.com", phone_number: "(905) 555-0123",
+  gbs_date: "2026-11-25", gbs_time: "6:00 PM" }), reminder);
+check("reminder keeps its text without the tracking links, added once", reminder[0].inquiry_email.includes("scheduled Tour with Lee Park")
+  && !reminder[0].inquiry_email.includes("yyyy") && reminder[0].inquiry_message_id === "<rem-1>#reminder", reminder[0]);
+const reminderHtml = parseTourReminderEmail({ html: "<p>This is a REMINDER for CN Oakville, ON that you have a scheduled Tour with " +
+  "Lee Park on 11/25/2026 at 6:00pm.&nbsp; Lee may be contacted at (905) 555-0123 or <a href=\"mailto:lee.park@example.com\">lee.park@example.com</a>.</p>" +
+  `<p><a href="${LONG_LINK}">Go to Task</a></p>` });
+check("HTML tour reminder", same(pick(reminderHtml[0], TOUR_KEYS), pick(reminder[0], TOUR_KEYS)), reminderHtml);
 
 // ---- CRM "new inbound text" email: a message from a family, never an inquiry or a tour
 const REPLY_URL = "https://u1.ct.example.net/ls/click?upn=" + "x".repeat(300);
