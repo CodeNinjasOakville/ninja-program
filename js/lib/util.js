@@ -59,3 +59,10 @@ export function lowerCompare(a, b) {
   const y = b.toLowerCase();
   return x < y ? -1 : x > y ? 1 : 0;
 }
+
+// A "drop-in" class: the Ninja may come in on any day, so it isn't tied to a weekday.
+// Saved as the class's day ("Drop-in"); "drop in" / "dropin" typed by hand count too.
+export const DROP_IN = "Drop-in";
+export function isDropIn(day) {
+  return /^drop[\s-]?ins?$/i.test(String(day || "").trim());
+}

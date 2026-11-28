@@ -120,6 +120,22 @@ check("second import: no new Ninjas except the one left out", again.people.map((
 check("second import: only Mia's unticked Wednesday removal is left",
   again.updates.length === 1 && again.updates[0].name === "Mia Lee-Wong" && again.updates[0].remove.length === 1 && !again.updates[0].add.length, again.updates);
 
+// ---- Drop-in: a class on no set day. The weekly MyStudio export never removes it.
+await call("POST", "/api/active-ninjas/person", { name: "Kai Moss", sessions: [{ day: "drop in", time_slot: "" }] });
+check("a drop-in class is saved as Drop-in", conn.get("SELECT day FROM active_ninjas WHERE name = 'Kai Moss'").day === "Drop-in");
+const samUid = ninjaOf("Sam Park").uid;
+const samClasses = await call("GET", `/api/ninjas/${samUid}`);
+await call("POST", "/api/active-ninjas/person", { uid: samUid, name: "Sam Park",
+  sessions: [...samClasses.classes.map((c) => ({ id: c.id, day: c.day, time_slot: c.time_slot })), { day: "Drop-in", time_slot: "" }] });
+const dropPreview = await call("POST", "/api/active-ninjas/import", undefined, upload(file));
+check("a drop-in-only Ninja is not listed as missing from the export", !dropPreview.missing.some((m) => m.name === "Kai Moss"), dropPreview.missing);
+check("a Ninja's drop-in class is never offered for removal",
+  !dropPreview.updates.some((u) => u.remove.some((r) => r.day === "Drop-in")), dropPreview.updates);
+await call("POST", "/api/active-ninjas/import/confirm", { missing: [ninjaOf("Kai Moss").uid] });
+check("removing a Ninja's classes after an import keeps their drop-in", !!conn.get("SELECT 1 AS x FROM active_ninjas WHERE name = 'Kai Moss'"));
+const dropDays = await call("GET", "/api/rewards/by-day");
+check("Drop-in shows as its own choice on Rewards by day", dropDays.days.some((d) => d.day === "Drop-in" && d.ninjas === 2), dropDays.days);
+
 // ---- A Ninja who comes back keeps their belt and history.
 await call("POST", "/api/leads", { ninja_name: "zzz" }); // unrelated write
 await call("POST", "/api/active-ninjas/person", { name: "Leo Kim", sessions: [{ day: "Sunday", time_slot: "1 PM" }] });

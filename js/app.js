@@ -509,6 +509,13 @@ document.getElementById("ninjaProfileOverlay").addEventListener("click", (e) => 
 // ACTIVE NINJAS
 // ================================================================
 
+// A drop-in class: the Ninja may come in on any day, so it isn't one of the weekdays.
+// Saved as the class's day; js/lib/util.js has the same rule for the routes.
+const DROP_IN = "Drop-in";
+function isDropIn(day) {
+  return /^drop[\s-]?ins?$/i.test(String(day || "").trim());
+}
+
 function populateActiveDayDropdown(select, selectedValue) {
   select.innerHTML = "";
   select.appendChild(el("option", { value: "", text: "-- Select --" }));
@@ -517,6 +524,9 @@ function populateActiveDayDropdown(select, selectedValue) {
     if (day === selectedValue) opt.setAttribute("selected", "selected");
     select.appendChild(opt);
   });
+  const dropIn = el("option", { value: DROP_IN, text: "Drop-in (any day)" });
+  if (isDropIn(selectedValue)) dropIn.setAttribute("selected", "selected");
+  select.appendChild(dropIn);
 }
 
 // Pull a sortable "minutes since midnight" out of a slot like "4 PM - 5 PM"
@@ -565,6 +575,7 @@ function shortDay(day) {
 }
 
 function sessionLabel(r) {
+  if (isDropIn(r.day)) return r.time_slot ? `${DROP_IN} ${r.time_slot}` : DROP_IN;
   return `${shortDay(r.day)} ${r.time_slot || "no time"}`.trim();
 }
 
@@ -601,16 +612,17 @@ function renderActiveSchedule(rows, allRows) {
   const sessionsByName = groupSessionsByPerson(allRows);
   const byDay = {};
   rows.forEach((row) => {
-    const day = row.day && row.day.trim() ? row.day.trim() : "Unscheduled";
+    const day = isDropIn(row.day) ? DROP_IN : row.day && row.day.trim() ? row.day.trim() : "Unscheduled";
     (byDay[day] = byDay[day] || []).push(row);
   });
 
   // Weekdays in Settings order that actually have Ninjas, then any
-  // unexpected day text, then Unscheduled last.
+  // unexpected day text, then Drop-in, then Unscheduled last.
   const dayOrder = knownDays.filter((d) => byDay[d]);
   Object.keys(byDay).forEach((d) => {
-    if (!dayOrder.includes(d) && d !== "Unscheduled") dayOrder.push(d);
+    if (!dayOrder.includes(d) && d !== "Unscheduled" && d !== DROP_IN) dayOrder.push(d);
   });
+  if (byDay[DROP_IN]) dayOrder.push(DROP_IN);
   if (byDay["Unscheduled"]) dayOrder.push("Unscheduled");
 
   dayOrder.forEach((day) => {
@@ -631,7 +643,7 @@ function renderActiveSchedule(rows, allRows) {
 
     const bySlot = {};
     dayRows.forEach((row) => {
-      const slot = row.time_slot && row.time_slot.trim() ? row.time_slot.trim() : "No time set";
+      const slot = row.time_slot && row.time_slot.trim() ? row.time_slot.trim() : (day === DROP_IN ? "Any day, any time" : "No time set");
       (bySlot[slot] = bySlot[slot] || []).push(row);
     });
 
@@ -1757,6 +1769,7 @@ async function showFamilyNote(uid) {
 }
 
 function dayIndex(day) {
+  if (isDropIn(day)) return 98; // after the weekdays, before anything unknown
   const i = (settings.schedule_days || []).indexOf(day);
   return i === -1 ? 99 : i;
 }
@@ -1770,9 +1783,12 @@ function renderSessionRows() {
 
     const daySelect = el("select");
     populateActiveDayDropdown(daySelect, sess.day);
-    daySelect.addEventListener("change", () => { sess.day = daySelect.value; });
 
     const timeInput = el("input", { type: "text", placeholder: "4 PM - 5 PM", list: "timeSlotOptions" });
+    // A drop-in can come at any time, so the time is optional there.
+    const timeHint = () => { timeInput.placeholder = isDropIn(sess.day) ? "Any time (optional)" : "4 PM - 5 PM"; };
+    timeHint();
+    daySelect.addEventListener("change", () => { sess.day = daySelect.value; timeHint(); });
     timeInput.value = sess.time_slot || "";
     timeInput.addEventListener("input", () => { sess.time_slot = timeInput.value; });
 

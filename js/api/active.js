@@ -1,7 +1,7 @@
 import { conn, getSetting } from "../core/db.js";
 import { route } from "./router.js";
 import { bulkDelete, insertAll, readUpload, searchClause } from "./common.js";
-import { ApiError, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
+import { ApiError, DROP_IN, isDropIn, nonBlankLines, pyStr, splitBulkLine } from "../lib/util.js";
 import {
   formatStartTime, looksLikeClassSchedule, looksLikeRankList, parseActiveNinjasCsv, parseClassSchedule, parseRankList,
   slotStartMinutes,
@@ -33,7 +33,7 @@ function insertActiveNinja(data) {
   if (belt) setNinjaBelt(conn, uid, belt);
   const ninja = getNinja(conn, uid);
   conn.run("INSERT INTO active_ninjas (name, day, time_slot, is_ai, is_jr, notes, belt, ninja_uid) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [
-    ninja.name, pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, data.is_jr ? 1 : 0,
+    ninja.name, isDropIn(data.day) ? DROP_IN : pyStr(data.day).trim(), pyStr(data.time_slot).trim(), data.is_ai ? 1 : 0, data.is_jr ? 1 : 0,
     pyStr(data.notes).trim(), pyStr(ninja.belt), uid,
   ]);
 }
@@ -65,7 +65,8 @@ route("PUT", "/api/active-ninjas/:id", ({ params, body }) => {
 
   const name = pyStr("name" in body ? body.name : existing.name).trim();
   if (!name) throw new ApiError("Name is required.");
-  const day = pyStr("day" in body ? body.day : existing.day).trim();
+  const typedDay = pyStr("day" in body ? body.day : existing.day).trim();
+  const day = isDropIn(typedDay) ? DROP_IN : typedDay;
   const timeSlot = pyStr("time_slot" in body ? body.time_slot : existing.time_slot).trim();
   const notes = pyStr("notes" in body ? body.notes : existing.notes).trim();
   const isAi = ("is_ai" in body ? body.is_ai : !!existing.is_ai) ? 1 : 0;
@@ -145,7 +146,7 @@ route("POST", "/api/active-ninjas/person", ({ body }) => {
   const cleaned = [];
   const seen = new Set();
   sessions.forEach((sess, i) => {
-    const day = pyStr(sess.day).trim();
+    const day = isDropIn(sess.day) ? DROP_IN : pyStr(sess.day).trim();
     const timeSlot = pyStr(sess.time_slot).trim();
     const isAi = sess.is_ai ? 1 : 0;
     const isJr = sess.is_jr ? 1 : 0;
@@ -461,7 +462,8 @@ function previewClassSchedule(entries) {
     }
     // A class the file doesn't have. "suggested" (ticked) only when the file covers that weekday,
     // so an export of just some days doesn't suggest removing all the others.
-    const remove = mine.filter((c) => !used.has(c.id))
+    // Drop-in classes are never in the weekly schedule, so the file can't say they are gone.
+    const remove = mine.filter((c) => !used.has(c.id) && !isDropIn(c.day))
       .map((c) => ({ ...classView(c), suggested: fileDays.has(pyStr(c.day).trim().toLowerCase()) }));
     return {
       uid: ninja.uid,
@@ -518,11 +520,10 @@ function previewClassSchedule(entries) {
   for (const c of classes) {
     if (!c.ninja_uid || matched.has(c.ninja_uid) || seenMissing.has(c.ninja_uid)) continue;
     seenMissing.add(c.ninja_uid);
-    missing.push({
-      uid: c.ninja_uid,
-      name: pyStr(c.name).trim(),
-      sessions: classes.filter((x) => x.ninja_uid === c.ninja_uid).map(classView).sort(bySchedule),
-    });
+    // Only their weekly classes: a drop-in Ninja being absent from the file says nothing.
+    const weekly = classes.filter((x) => x.ninja_uid === c.ninja_uid && !isDropIn(x.day));
+    if (!weekly.length) continue;
+    missing.push({ uid: c.ninja_uid, name: pyStr(c.name).trim(), sessions: weekly.map(classView).sort(bySchedule) });
   }
 
   const byName = (a, b) => a.name.localeCompare(b.name);
@@ -659,9 +660,12 @@ route("POST", "/api/active-ninjas/import/confirm", ({ body }) => {
     }
 
     for (const uid of missing) {
-      const count = conn.get("SELECT COUNT(*) AS c FROM active_ninjas WHERE ninja_uid = ?", [pyStr(uid)]).c;
+      // Their weekly classes go; a drop-in class stays (it was never in the schedule).
+      const ids = conn.all("SELECT id, day FROM active_ninjas WHERE ninja_uid = ?", [pyStr(uid)])
+        .filter((r) => !isDropIn(r.day)).map((r) => r.id);
+      const count = ids.length;
       if (!count) continue;
-      conn.run("DELETE FROM active_ninjas WHERE ninja_uid = ?", [pyStr(uid)]);
+      conn.run(`DELETE FROM active_ninjas WHERE id IN (${ids.map(() => "?").join(", ")})`, ids);
       result.removedNinjas += 1;
       result.removedClasses += count;
     }
